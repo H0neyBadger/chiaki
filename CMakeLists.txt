@@ -109,6 +109,5 @@ if(CHIAKI_ENABLE_ANDROID)
 endif()
 
 if(CHIAKI_ENABLE_SWITCH)
-	#TODO
-	#add_subdirectory(switch)
+	add_subdirectory(switch)
 endif()
