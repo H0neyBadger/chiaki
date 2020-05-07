@@ -25,138 +25,38 @@
 
 #include <host.h>
 
-static void RegistCB(ChiakiRegistEvent *event, void *user){
-	// Chiaki callback fuction
-	// fuction called by lib chiaki regist
-	// durring client pin code registration
-	//
-	// read data from lib and record secrets into Host object
+static void Regist(ChiakiRegistEvent *event, void *user){
 	Host *host = (Host*) user;
-	host->registered = false;
-	switch(event->type)
-	{
-		case CHIAKI_REGIST_EVENT_TYPE_FINISHED_CANCELED:
-			//FIXME
-			break;
-		case CHIAKI_REGIST_EVENT_TYPE_FINISHED_FAILED:
-			//FIXME
-			CHIAKI_LOGI(host->log, "Register failed %s", host->host_name.c_str());
-			break;
-		case CHIAKI_REGIST_EVENT_TYPE_FINISHED_SUCCESS:
-		{
-			ChiakiRegisteredHost *r_host = event->registered_host;
-			// copy values form ChiakiRegisteredHost object
-			host->ap_ssid = r_host->ap_ssid;
-			host->ap_key = r_host->ap_key;
-			host->ap_name = r_host->ap_name;
-			memcpy( &(host->ps4_mac), &(r_host->ps4_mac), sizeof(host->ps4_mac) );
-			host->ps4_nickname = r_host->ps4_nickname;
-			memcpy( &(host->rp_regist_key),  &(r_host->rp_regist_key), sizeof(host->rp_regist_key) );
-			host->rp_key_type = r_host->rp_key_type;
-			memcpy( &(host->rp_key), &(r_host->rp_key), sizeof(host->rp_key) );
-			// mark host as registered
-			host->registered = true;
-			host->rp_key_data = true;
-			CHIAKI_LOGI(host->log, "Register Success %s", host->host_name.c_str());
-			break;
-		}
-	}
+	host->RegistCB(event);
 }
 
-static bool VideoCB(uint8_t *buf, size_t buf_size, void *user){
-	// callback function to decode video buffer
-
-	// access chiaki session from Host object
+static void InitAudio(unsigned int channels, unsigned int rate, void *user){
 	Host *host = (Host*) user;
-	AVPacket packet;
-	av_init_packet(&packet);
-	packet.data = buf;
-	packet.size = buf_size;
-	int r;
-
-send_packet:
-	// TODO AVCodec internal buffer is full removing frames before pushing
-	r = avcodec_send_packet(host->codec_context, &packet);
-	if(r != 0) {
-		if(r == AVERROR(EAGAIN)){
-			CHIAKI_LOGE(host->log, "AVCodec internal buffer is full removing frames before pushing");
-			AVFrame *frame = av_frame_alloc();
-
-			if(!frame){
-				CHIAKI_LOGE(host->log, "Failed to alloc AVFrame");
-				return false;
-			}
-
-			r = avcodec_receive_frame(host->codec_context, frame);
-			// send decoded frame for sdl texture update
-			av_frame_free(&frame);
-			if(r != 0){
-				CHIAKI_LOGE(host->log, "Failed to pull frame");
-				return false;
-			}
-			goto send_packet;
-		} else {
-			char errbuf[128];
-			av_make_error_string(errbuf, sizeof(errbuf), r);
-			CHIAKI_LOGE(host->log, "Failed to push frame: %s", errbuf);
-			return false;
-		}
-	}
-	// FramesAvailable
-	host->UpdateFrame();
-	return true;
+	host->InitAudioCB(channels, rate);
 }
 
-static void InitAudioCB(unsigned int channels, unsigned int rate, void *user){
+static bool Video(uint8_t *buf, size_t buf_size, void *user){
 	Host *host = (Host*) user;
-	SDL_AudioSpec want, have, test;
-	SDL_memset(&want, 0, sizeof(want));
-
-	//source
-	//[I] Audio Header:
-	//[I]   channels = 2
-	//[I]   bits = 16
-	//[I]   rate = 48000
-	//[I]   frame size = 480
-	//[I]   unknown = 1
-    want.freq = rate;
-    want.format = AUDIO_S16SYS;
-	// 2 == stereo
-    want.channels = channels;
-    want.samples = 1024;
-	want.callback = NULL;
-
-	ChiakiLog *log = nullptr;
-	host->audio_device_id = SDL_OpenAudioDevice(NULL, 0, &want, NULL, 0);
-	if(host->audio_device_id < 0){
-		CHIAKI_LOGE(host->log, "SDL_OpenAudioDevice failed: %s\n", SDL_GetError());
-	} else {
-		SDL_PauseAudioDevice(host->audio_device_id, 0);
-	}
+	return host->VideoCB(buf, buf_size);
 }
 
-static void AudioCB(int16_t *buf, size_t samples_count, void *user){
+static void Audio(int16_t *buf, size_t samples_count, void *user){
 	Host *host = (Host*) user;
-	//int az = SDL_GetQueuedAudioSize(host->audio_device_id);
-	// len the number of bytes (not samples!) to which (data) points
-	int success = SDL_QueueAudio(host->audio_device_id, buf, sizeof(int16_t)*samples_count*2);
-	if(success != 0){
-		CHIAKI_LOGE(host->log, "SDL_QueueAudio failed: %s\n", SDL_GetError());
-	}
+	host->AudioCB(buf, samples_count);
 }
 
-Host * Host::GetOrCreate(std::map<std::string, Host> *hosts, std::string *key){
+Host * Host::GetOrCreate(ChiakiLog *log, std::map<std::string, Host> *hosts, std::string *key){
     // update of create Host instance
     if ( hosts->find(*key) == hosts->end() ) {
         // create host if udefined
-        (*hosts)[*key] = Host();
+        (*hosts)[*key] = Host(log);
     }
     Host *ret = &(hosts->at(*key));
     ret->host_name = *key;
     return ret;
 }
 
-Host::Host(){
+void Host::InitVideo(){
 	// set libav video context
 	// for later stream
 
@@ -246,13 +146,7 @@ Host::Host(){
 		this->codec_context->height,
 		32
 	);
-/*
- * CHIAKI_VIDEO_RESOLUTION_PRESET_360p = 1,
- * CHIAKI_VIDEO_RESOLUTION_PRESET_540p = 2,
- * CHIAKI_VIDEO_RESOLUTION_PRESET_720p = 3,
- * CHIAKI_VIDEO_RESOLUTION_PRESET_1080p = 4
- * CHIAKI_VIDEO_FPS_PRESET_30;
- */
+
 	chiaki_connect_video_profile_preset(&(this->video_profile),
 		this->video_resolution, this->video_fps);
 
@@ -305,7 +199,7 @@ int Host::Register(std::string pin){
 	regist_info.broadcast = false;
 	CHIAKI_LOGI(this->log, "Registering to host `%s` `%s` with PSN AccountID `%s` pin `%s`",
 		this->host_name.c_str(), this->host_addr.c_str(), psn_account_id.c_str(), pin.c_str());
-	chiaki_regist_start(&regist, this->log, &regist_info, RegistCB, this);
+	chiaki_regist_start(&regist, this->log, &regist_info, Regist, this);
 	//FIXME poll host->registered
 	sleep(1);
 	chiaki_regist_stop(&regist);
@@ -321,17 +215,8 @@ int Host::ConnectSession() {
 	chiaki_connect_info.host = this->host_addr.c_str();
 	chiaki_connect_info.video_profile = this->video_profile;
 
-	/*
- * if(strlen(this->rp_regist_key) != sizeof(chiaki_connect_info.regist_key))
-		throw Exception("RegistKey invalid");
-*/
 	memcpy(chiaki_connect_info.regist_key, this->rp_regist_key, sizeof(chiaki_connect_info.regist_key));
 
-	// morning == rp-key
-	/*
-	if(sizeof(this->rp_key) != sizeof(chiaki_connect_info.morning))
-		throw Exception("Morning invalid");
-	*/
 	memcpy(chiaki_connect_info.morning, this->rp_key, sizeof(chiaki_connect_info.morning));
 
 	// set keybord state to 0
@@ -341,15 +226,14 @@ int Host::ConnectSession() {
 	if(err != CHIAKI_ERR_SUCCESS)
 		throw Exception(chiaki_error_string(err));
 	// audio setting_cb and frame_cb
-	chiaki_opus_decoder_set_cb(&this->opus_decoder, InitAudioCB, AudioCB, this);
+	chiaki_opus_decoder_set_cb(&this->opus_decoder, InitAudio, Audio, this);
 	chiaki_opus_decoder_get_sink(&this->opus_decoder, &audio_sink);
 	chiaki_session_set_audio_sink(&(this->session), &audio_sink);
-	chiaki_session_set_video_sample_cb(&(this->session), VideoCB, this);
+	chiaki_session_set_video_sample_cb(&(this->session), Video, this);
 	// TODO
 	chiaki_session_set_event_cb(&(this->session), NULL, this);
 	return 0;
 }
-
 
 void Host::StartSession()
 {
@@ -360,56 +244,6 @@ void Host::StartSession()
 		throw Exception("Chiaki Session Start failed");
 	}
 	sleep(1);
-}
-
-int Host::UpdateFrame(){
-
-	AVFrame *frame = av_frame_alloc();
-	//AVFrame *next_frame = av_frame_alloc();
-	//AVFrame *tmp_swp = frame;
-
-	if(!frame){
-		CHIAKI_LOGE(this->log, "UpdateFrame Failed to alloc AVFrame");
-		return -1;
-	}
-
-	int ret;
-	ret = avcodec_receive_frame(this->codec_context, frame);
-
-	if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
-	{
-		CHIAKI_LOGE(this->log, "Error while decoding: EAGAIN or AVERROR_EOF");
-		return ret;
-	}
-	else if (ret < 0)
-	{
-		CHIAKI_LOGE(this->log, "Error while decoding.");
-		return -1;
-	}
-	/*
-	// decode frame
-	do {
-		tmp_swp = frame;
-		frame = next_frame;
-		next_frame = tmp_swp;
-		ret = avcodec_receive_frame(this->codec_context, next_frame);
-	} while(ret == 0);
-	*/
-
-	// adjust frame to pict
-	sws_scale(
-		this->sws_context,
-		(uint8_t const * const *)frame->data,
-		frame->linesize,
-		0,
-		this->codec_context->height,
-		pict->data,
-		pict->linesize
-	);
-
-	av_frame_free(&frame);
-	//av_frame_free(&next_frame);
-	return 0;
 }
 
 bool Host::ReadGameKeys(SDL_Event *event, ChiakiControllerState *state){
@@ -511,6 +345,166 @@ bool Host::ReadGameKeys(SDL_Event *event, ChiakiControllerState *state){
 }
 
 void Host::SendFeedbackState(ChiakiControllerState *state){
+	// send controller/joystick key
 	chiaki_session_set_controller_state(&this->session, state);
 }
 
+void Host::RegistCB(ChiakiRegistEvent *event){
+	// Chiaki callback fuction
+	// fuction called by lib chiaki regist
+	// durring client pin code registration
+	//
+	// read data from lib and record secrets into Host object
+
+	this->registered = false;
+	switch(event->type)
+	{
+		case CHIAKI_REGIST_EVENT_TYPE_FINISHED_CANCELED:
+			//FIXME
+			break;
+		case CHIAKI_REGIST_EVENT_TYPE_FINISHED_FAILED:
+			//FIXME
+			CHIAKI_LOGI(this->log, "Register failed %s", this->host_name.c_str());
+			break;
+		case CHIAKI_REGIST_EVENT_TYPE_FINISHED_SUCCESS:
+		{
+			ChiakiRegisteredHost *r_host = event->registered_host;
+			// copy values form ChiakiRegisteredHost object
+			this->ap_ssid = r_host->ap_ssid;
+			this->ap_key = r_host->ap_key;
+			this->ap_name = r_host->ap_name;
+			memcpy( &(this->ps4_mac), &(r_host->ps4_mac), sizeof(this->ps4_mac) );
+			this->ps4_nickname = r_host->ps4_nickname;
+			memcpy( &(this->rp_regist_key),  &(r_host->rp_regist_key), sizeof(this->rp_regist_key) );
+			this->rp_key_type = r_host->rp_key_type;
+			memcpy( &(this->rp_key), &(r_host->rp_key), sizeof(this->rp_key) );
+			// mark host as registered
+			this->registered = true;
+			this->rp_key_data = true;
+			CHIAKI_LOGI(this->log, "Register Success %s", this->host_name.c_str());
+			break;
+		}
+	}
+}
+
+bool Host::VideoCB(uint8_t *buf, size_t buf_size){
+	// callback function to decode video buffer
+	// access chiaki session from Host object
+	AVPacket packet;
+	av_init_packet(&packet);
+	packet.data = buf;
+	packet.size = buf_size;
+	int r;
+
+send_packet:
+	// TODO AVCodec internal buffer is full removing frames before pushing
+	r = avcodec_send_packet(this->codec_context, &packet);
+	if(r != 0) {
+		if(r == AVERROR(EAGAIN)){
+			CHIAKI_LOGE(this->log, "AVCodec internal buffer is full removing frames before pushing");
+			AVFrame *frame = av_frame_alloc();
+
+			if(!frame){
+				CHIAKI_LOGE(this->log, "Failed to alloc AVFrame");
+				return false;
+			}
+
+			r = avcodec_receive_frame(this->codec_context, frame);
+			// send decoded frame for sdl texture update
+			av_frame_free(&frame);
+			if(r != 0){
+				CHIAKI_LOGE(this->log, "Failed to pull frame");
+				return false;
+			}
+			goto send_packet;
+		} else {
+			char errbuf[128];
+			av_make_error_string(errbuf, sizeof(errbuf), r);
+			CHIAKI_LOGE(this->log, "Failed to push frame: %s", errbuf);
+			return false;
+		}
+	}
+
+	// FramesAvailable
+	AVFrame *frame = av_frame_alloc();
+	AVFrame *next_frame = av_frame_alloc();
+	AVFrame *tmp_swp = frame;
+
+	if(!frame){
+		CHIAKI_LOGE(this->log, "UpdateFrame Failed to alloc AVFrame");
+		return -1;
+	}
+
+	int ret;
+	/*
+	ret = avcodec_receive_frame(this->codec_context, frame);
+
+	if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
+	{
+		CHIAKI_LOGE(this->log, "Error while decoding: EAGAIN or AVERROR_EOF");
+		return ret;
+	}
+	else if (ret < 0)
+	{
+		CHIAKI_LOGE(this->log, "Error while decoding.");
+		return -1;
+	}
+	*/
+	// decode frame
+	do {
+		tmp_swp = frame;
+		frame = next_frame;
+		next_frame = tmp_swp;
+		ret = avcodec_receive_frame(this->codec_context, next_frame);
+	} while(ret == 0);
+
+	// adjust frame to pict
+	sws_scale(
+		this->sws_context,
+		(uint8_t const * const *)frame->data,
+		frame->linesize,
+		0,
+		this->codec_context->height,
+		pict->data,
+		pict->linesize
+	);
+
+	av_frame_free(&frame);
+	av_frame_free(&next_frame);
+	return true;
+}
+
+void Host::InitAudioCB(unsigned int channels, unsigned int rate){
+	SDL_AudioSpec want, have, test;
+	SDL_memset(&want, 0, sizeof(want));
+
+	//source
+	//[I] Audio Header:
+	//[I]   channels = 2
+	//[I]   bits = 16
+	//[I]   rate = 48000
+	//[I]   frame size = 480
+	//[I]   unknown = 1
+    want.freq = rate;
+    want.format = AUDIO_S16SYS;
+	// 2 == stereo
+    want.channels = channels;
+    want.samples = 1024;
+	want.callback = NULL;
+
+	this->audio_device_id = SDL_OpenAudioDevice(NULL, 0, &want, NULL, 0);
+	if(this->audio_device_id < 0){
+		CHIAKI_LOGE(this->log, "SDL_OpenAudioDevice failed: %s\n", SDL_GetError());
+	} else {
+		SDL_PauseAudioDevice(this->audio_device_id, 0);
+	}
+}
+
+void Host::AudioCB(int16_t *buf, size_t samples_count){
+	//int az = SDL_GetQueuedAudioSize(host->audio_device_id);
+	// len the number of bytes (not samples!) to which (data) points
+	int success = SDL_QueueAudio(this->audio_device_id, buf, sizeof(int16_t)*samples_count*2);
+	if(success != 0){
+		CHIAKI_LOGE(this->log, "SDL_QueueAudio failed: %s\n", SDL_GetError());
+	}
+}

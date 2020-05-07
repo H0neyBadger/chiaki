@@ -61,7 +61,7 @@ void Settings::ParseFile(){
 				case HOST_NAME:
 					CHIAKI_LOGV(this->log, "HOST_NAME %s", value.c_str());
 					// current host is in context
-					current_host = Host::GetOrCreate(this->hosts, &value);
+					current_host = Host::GetOrCreate(this->log, this->hosts, &value);
 					// all following case will edit the current_host config
 					break;
 				case HOST_IP:

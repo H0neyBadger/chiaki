@@ -40,11 +40,11 @@ extern "C"
 #include "exception.h"
 
 class DiscoveryManager;
-static void DiscoveryCB(ChiakiDiscoveryHost*, void*);
-static void RegistCB(ChiakiRegistEvent*, void*);
-static bool VideoCB(uint8_t*, size_t, void*);
-static void InitAudioCB(unsigned int, unsigned int, void*);
-static void AudioCB(int16_t*, size_t, void*);
+static void Discovery(ChiakiDiscoveryHost*, void*);
+static void Regist(ChiakiRegistEvent*, void*);
+static bool Video(uint8_t*, size_t, void*);
+static void InitAudio(unsigned int, unsigned int, void*);
+static void Audio(int16_t*, size_t, void*);
 
 
 class Host
@@ -85,19 +85,12 @@ class Host
 		AVCodec *codec;
 		AVCodecContext *codec_context;
 		struct SwsContext * sws_context = NULL;
-		int UpdateFrame();
 		// audio vars
 		SDL_AudioDeviceID audio_device_id;
 		// use friend class and methodes
 		// to allow private var access
 		friend class DiscoveryManager;
 		friend class Settings;
-		friend void DiscoveryCB(ChiakiDiscoveryHost*, void*);
-		friend void RegistCB(ChiakiRegistEvent*, void*);
-		friend bool VideoCB(uint8_t*, size_t, void*);
-		friend void InitAudioCB(unsigned int, unsigned int, void*);
-		friend void AudioCB(int16_t*, size_t, void*);
-
 	public:
 		// internal state
 		bool discovered = false;
@@ -108,14 +101,21 @@ class Host
 		// share picture frame
 		// with main function
 		AVFrame *pict;
-		Host();
-		static Host * GetOrCreate(std::map<std::string, Host>*, std::string*);
+		Host(ChiakiLog *log):log(log) {};
+		Host(){};
+		static Host * GetOrCreate(ChiakiLog*, std::map<std::string, Host>*, std::string*);
+		void InitVideo();
 		int Register(std::string pin);
 		int Wakeup();
 		int ConnectSession();
 		void StartSession();
 		bool ReadGameKeys(SDL_Event*, ChiakiControllerState*);
 		void SendFeedbackState(ChiakiControllerState*);
+		// callback methods
+		void RegistCB(ChiakiRegistEvent*);
+		bool VideoCB(uint8_t*, size_t);
+		void InitAudioCB(unsigned int, unsigned int);
+		void AudioCB(int16_t*, size_t);
 };
 
 #endif

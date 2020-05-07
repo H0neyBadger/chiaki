@@ -26,6 +26,8 @@
 
 #include <host.h>
 
+static void Discovery(ChiakiDiscoveryHost*, void*);
+
 class DiscoveryManager
 {
 	private:
@@ -37,6 +39,7 @@ class DiscoveryManager
 		int Discover(const char *discover_ip_dest="255.255.255.255");
 		int ParseSettings();
 		Host* GetHost(std::string);
+		void DiscoveryCB(ChiakiDiscoveryHost*);
 };
 
 #endif //CHIAKI_DISCOVERYMANAGER_H

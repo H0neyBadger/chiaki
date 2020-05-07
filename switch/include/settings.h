@@ -46,15 +46,15 @@ class Settings {
 		// the aim is not to have bulletproof parser
 		// the goal is to read/write inernal flat configuration file
 		const std::map<Settings::ConfigurationItem, std::regex> re_map = {
-			{ HOST_NAME, std::regex("\\[\\s*(.+)\\s*\\]") },
-			{ HOST_IP, std::regex("\\s*host_ip\\s*=\\s*\"?(\\d+\\.\\d+\\.\\d+\\.\\d+)\"?") },
-			{ PSN_ONLINE_ID, std::regex("\\s*psn_online_id\\s*=\\s*\"?(\\w+)\"?") },
-			{ PSN_ACCOUNT_ID, std::regex("\\s*psn_account_id\\s*=\\s*\"?([\\w/=]+)\"?") },
-			{ RP_KEY, std::regex("\\s*rp_key\\s*=\\s*\"?(\\w+)\"?") },
-			{ RP_KEY_TYPE, std::regex("\\s*rp_key_type\\s*=\\s*\"?(\\d)\"?") },
-			{ RP_REGIST_KEY, std::regex("\\s*rp_regist_key\\s*=\\s*\"?(\\w+)\"?") },
-			{ VIDEO_RESOLUTION, std::regex("\\s*video_resolution\\s*=\\s*\"?(1080p|720p|540p|360p)\"?") },
-			{ VIDEO_FPS, std::regex("\\s*video_fps\\s*=\\s*\"?(60|30)\"?") },
+			{ HOST_NAME, std::regex("^\\[\\s*(.+)\\s*\\]") },
+			{ HOST_IP, std::regex("^\\s*host_ip\\s*=\\s*\"?(\\d+\\.\\d+\\.\\d+\\.\\d+)\"?") },
+			{ PSN_ONLINE_ID, std::regex("^\\s*psn_online_id\\s*=\\s*\"?(\\w+)\"?") },
+			{ PSN_ACCOUNT_ID, std::regex("^\\s*psn_account_id\\s*=\\s*\"?([\\w/=]+)\"?") },
+			{ RP_KEY, std::regex("^\\s*rp_key\\s*=\\s*\"?(\\w+)\"?") },
+			{ RP_KEY_TYPE, std::regex("^\\s*rp_key_type\\s*=\\s*\"?(\\d)\"?") },
+			{ RP_REGIST_KEY, std::regex("^\\s*rp_regist_key\\s*=\\s*\"?(\\w+)\"?") },
+			{ VIDEO_RESOLUTION, std::regex("^\\s*video_resolution\\s*=\\s*\"?(1080p|720p|540p|360p)\"?") },
+			{ VIDEO_FPS, std::regex("^\\s*video_fps\\s*=\\s*\"?(60|30)\"?") },
 		};
 
 		ConfigurationItem ParseLine(std::string *line, std::string *value);

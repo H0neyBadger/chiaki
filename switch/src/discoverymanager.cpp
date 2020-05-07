@@ -23,80 +23,10 @@
 
 #include <discoverymanager.h>
 
-static void DiscoveryCB(ChiakiDiscoveryHost *host, void *user)
-{
-	// the user ptr is passed as
-	// chiaki_discovery_thread_start arg
-	std::map<std::string, Host> *hosts = (std::map<std::string, Host>*) user;
-	std::string key = host->host_name;
-	Host *n_host = Host::GetOrCreate(hosts, &key);
-
-	ChiakiLog* log = nullptr;
-	CHIAKI_LOGI(log, "--");
-	CHIAKI_LOGI(log, "Discovered Host:");
-	CHIAKI_LOGI(log, "State:                             %s", chiaki_discovery_host_state_string(host->state));
-	/* host attr
-	uint32_t host_addr;
-	int system_version;
-	int device_discovery_protocol_version;
-	std::string host_name;
-	std::string host_type;
-	std::string host_id;
-	*/
-	n_host->state = host->state;
-	// add host ptr to list
-	if(host->system_version){
-		// example: 07020001
-		n_host->system_version = atoi(host->system_version);
-		CHIAKI_LOGI(log, "System Version:                    %s", host->system_version);
-	}
-	if(host->device_discovery_protocol_version)
-		n_host->device_discovery_protocol_version = atoi(host->device_discovery_protocol_version);
-		CHIAKI_LOGI(log, "Device Discovery Protocol Version: %s", host->device_discovery_protocol_version);
-
-	if(host->host_request_port)
-		CHIAKI_LOGI(log, "Request Port:                      %hu", (unsigned short)host->host_request_port);
-
-	if(host->host_addr)
-		n_host->host_addr = host->host_addr;
-		CHIAKI_LOGI(log, "Host Addr:                         %s", host->host_addr);
-
-	if(host->host_name)
-		// FIXME
-		n_host->host_name = host->host_name;
-		CHIAKI_LOGI(log, "Host Name:                         %s", host->host_name);
-
-	if(host->host_type)
-		CHIAKI_LOGI(log, "Host Type:                         %s", host->host_type);
-
-	if(host->host_id)
-		CHIAKI_LOGI(log, "Host ID:                           %s", host->host_id);
-
-	if(host->running_app_titleid)
-		CHIAKI_LOGI(log, "Running App Title ID:              %s", host->running_app_titleid);
-
-	if(host->running_app_name)
-		CHIAKI_LOGI(log, "Running App Name:                  %s", host->running_app_name);
-
-	CHIAKI_LOGI(log, "--");
+static void Discovery(ChiakiDiscoveryHost *discovered_host, void *user){
+	DiscoveryManager *dm = (DiscoveryManager*) user;
+	dm->DiscoveryCB(discovered_host);
 }
-
-int DiscoveryManager::ParseSettings(){
-	/*
-	std::string ap_ssid;
-	std::string ap_bssid;
-	std::string ap_key;
-	std::string ap_name;
-	std::string ps4_nickname;
-	// mac address = 48 bits
-	uint8_t ps4_mac[6];
-	char rp_regist_key[CHIAKI_SESSION_AUTH_SIZE];
-	uint32_t rp_key_type;
-	uint8_t rp_key[0x10];
-	*/
-	return 0;
-}
-
 
 int DiscoveryManager::Discover(const char *discover_ip_dest)
 {
@@ -111,7 +41,7 @@ int DiscoveryManager::Discover(const char *discover_ip_dest)
 	}
 
 	ChiakiDiscoveryThread thread;
-	err = chiaki_discovery_thread_start(&thread, &discovery, DiscoveryCB, hosts);
+	err = chiaki_discovery_thread_start(&thread, &discovery, Discovery, this);
 	if(err != CHIAKI_ERR_SUCCESS)
 	{
 		CHIAKI_LOGE(log, "Discovery thread init failed");
@@ -174,3 +104,61 @@ Host* DiscoveryManager::GetHost(std::string ps4_nickname){
 		return 0;
 	}
 }
+
+void DiscoveryManager::DiscoveryCB(ChiakiDiscoveryHost *discovered_host){
+
+	// the user ptr is passed as
+	// chiaki_discovery_thread_start arg
+
+	std::string key = discovered_host->host_name;
+	Host *host = Host::GetOrCreate(this->log, hosts, &key);
+
+	CHIAKI_LOGI(this->log, "--");
+	CHIAKI_LOGI(this->log, "Discovered Host:");
+	CHIAKI_LOGI(this->log, "State:                             %s", chiaki_discovery_host_state_string(discovered_host->state));
+	/* host attr
+	uint32_t host_addr;
+	int system_version;
+	int device_discovery_protocol_version;
+	std::string host_name;
+	std::string host_type;
+	std::string host_id;
+	*/
+	host->state = discovered_host->state;
+	// add host ptr to list
+	if(discovered_host->system_version){
+		// example: 07020001
+		host->system_version = atoi(discovered_host->system_version);
+		CHIAKI_LOGI(this->log, "System Version:                    %s", discovered_host->system_version);
+	}
+	if(discovered_host->device_discovery_protocol_version)
+		host->device_discovery_protocol_version = atoi(discovered_host->device_discovery_protocol_version);
+		CHIAKI_LOGI(this->log, "Device Discovery Protocol Version: %s", discovered_host->device_discovery_protocol_version);
+
+	if(discovered_host->host_request_port)
+		CHIAKI_LOGI(this->log, "Request Port:                      %hu", (unsigned short)discovered_host->host_request_port);
+
+	if(discovered_host->host_addr)
+		host->host_addr = discovered_host->host_addr;
+		CHIAKI_LOGI(this->log, "Host Addr:                         %s", discovered_host->host_addr);
+
+	if(discovered_host->host_name)
+		// FIXME
+		host->host_name = discovered_host->host_name;
+		CHIAKI_LOGI(this->log, "Host Name:                         %s", discovered_host->host_name);
+
+	if(discovered_host->host_type)
+		CHIAKI_LOGI(this->log, "Host Type:                         %s", discovered_host->host_type);
+
+	if(discovered_host->host_id)
+		CHIAKI_LOGI(this->log, "Host ID:                           %s", discovered_host->host_id);
+
+	if(discovered_host->running_app_titleid)
+		CHIAKI_LOGI(this->log, "Running App Title ID:              %s", discovered_host->running_app_titleid);
+
+	if(discovered_host->running_app_name)
+		CHIAKI_LOGI(this->log, "Running App Name:                  %s", discovered_host->running_app_name);
+
+	CHIAKI_LOGI(this->log, "--");
+}
+

@@ -244,10 +244,14 @@ int main(int argc, char* argv[]){
 		return 1;
 	}
 
+	//FIXME
 	//if(host->rp_key_data) {
 		//CHIAKI_LOGI(&log, "Call Wakeup");
 		//int w = host->Wakeup();
 	//}
+
+	//simple video var init
+	host->InitVideo();
 
 	if(!host->rp_key_data) {
 		CHIAKI_LOGI(&log, "Call register");
