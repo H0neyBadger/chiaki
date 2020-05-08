@@ -15,7 +15,7 @@ Build container image
 from the [script](../script/switch) folder.
 Here I'm using podman (rootless), but you can use docker instead.
 ```
-podman build --pull --no-cache switch_build .
+podman build --pull --no-cache -t switch_build .
 ```
 
 Run container
@@ -59,12 +59,14 @@ please create the **chiaki.conf** file.
 this file must be copied with the chiaki.nro local folder.
 ```ini
 # required: PS4-XXX (PS4 local name)
+# name from PS4 Settings > System > system information
 [PS4-XXX]
 # required: lan PS4 IP address
+# IP from PS4 Settings > System > system information
 host_ip = X.X.X.X
 # required: sony oline id (login)
 psn_online_id = ps4_online_id
-# required: https://github.com/thestr4ng3r/chiaki#obtaining-your-psn-accountid
+# required (PS4>7.0 Only): https://github.com/thestr4ng3r/chiaki#obtaining-your-psn-accountid
 psn_account_id = ps4_base64_account_id
 # optional(default 30): remote play fps (must be 30 or 60)
 video_fps = 30
