@@ -170,8 +170,12 @@ int Host::Wakeup()
 	}
 
 	uint64_t credential = (uint64_t)strtoull(this->rp_regist_key, NULL, 16);
-
-	return chiaki_discovery_wakeup(this->log, NULL, host_addr.c_str(), credential);
+	ChiakiErrorCode ret = chiaki_discovery_wakeup(this->log, NULL, host_addr.c_str(), credential);
+	if(ret == CHIAKI_ERR_SUCCESS){
+		//FIXME
+		//sleep(1);
+	}
+	return ret;
 }
 
 int Host::Register(std::string pin){

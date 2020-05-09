@@ -31,6 +31,8 @@ void socketInitializeDefault(){return;};
 
 // chiaki modules
 #include <chiaki/log.h>
+#include <chiaki/discovery.h>
+
 // discover and wakeup ps4 host
 // from local network
 #include "discoverymanager.h"
@@ -217,6 +219,7 @@ int main(int argc, char* argv[]){
 	CHIAKI_LOGI(&log, "Read chiaki settings file");
 	settings.ParseFile();
 	DiscoveryManager discoverymanager = DiscoveryManager(&log, &hosts);
+
 	size_t host_count = hosts.size();
 
 	if(host_count != 1){
@@ -230,9 +233,28 @@ int main(int argc, char* argv[]){
 	// int c = discoverymanager.ParseSettings();
 	CHIAKI_LOGI(&log, "Call Discover");
 	int d = discoverymanager.Discover(host->host_addr.c_str());
-	CHIAKI_LOGI(&log, "Discover ran");
-	// retrieve first host on the list
 	CHIAKI_LOGI(&log, "Open %s host", host->host_addr.c_str());
+
+	if(host->state == CHIAKI_DISCOVERY_HOST_STATE_UNKNOWN){
+		CHIAKI_LOGE(&log, "Failed to discover host (network issue ?)");
+		SDL_Quit();
+		exit(1);
+	}
+
+	if(host->state == CHIAKI_DISCOVERY_HOST_STATE_STANDBY && !host->rp_key_data){
+		CHIAKI_LOGE(&log, "Your PS4 is not ready. Please turn on your ps4 to register this device");
+		SDL_Quit();
+		exit(1);
+	}
+
+	int count = 0;
+	while(host->state != CHIAKI_DISCOVERY_HOST_STATE_READY && host->rp_key_data && count < 10){
+		CHIAKI_LOGI(&log, "Send Wakeup packet count:%d", count);
+		host->Wakeup();
+		//refresh state (and wait)
+		sleep(2);
+		discoverymanager.Discover(host->host_addr.c_str());
+	}
 
 	if(host <= 0){
 		CHIAKI_LOGE(&log, "Host %s not found", host->host_addr.c_str());
@@ -244,11 +266,6 @@ int main(int argc, char* argv[]){
 		return 1;
 	}
 
-	//FIXME
-	//if(host->rp_key_data) {
-		//CHIAKI_LOGI(&log, "Call Wakeup");
-		//int w = host->Wakeup();
-	//}
 
 	//simple video var init
 	host->InitVideo();

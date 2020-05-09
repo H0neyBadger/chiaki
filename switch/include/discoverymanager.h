@@ -32,9 +32,17 @@ class DiscoveryManager
 {
 	private:
 		ChiakiLog* log;
-		// list of host 
+		// list of host
 		std::map<std::string, Host> *hosts;
 	public:
+
+        typedef enum hoststate{
+            UNKNOWN,
+            READY,
+            STANDBY,
+            SHUTDOWN,
+        } HostState;
+
 		explicit DiscoveryManager(ChiakiLog* log, std::map<std::string, Host> *hosts): log(log), hosts(hosts) {};
 		int Discover(const char *discover_ip_dest="255.255.255.255");
 		int ParseSettings();

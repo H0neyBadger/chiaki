@@ -125,6 +125,7 @@ void DiscoveryManager::DiscoveryCB(ChiakiDiscoveryHost *discovered_host){
 	std::string host_id;
 	*/
 	host->state = discovered_host->state;
+
 	// add host ptr to list
 	if(discovered_host->system_version){
 		// example: 07020001

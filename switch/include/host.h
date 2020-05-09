@@ -57,7 +57,6 @@ class Host
 		// info from discovery manager
 		int system_version;
 		int device_discovery_protocol_version;
-		std::string state;
 		std::string host_name;
 		std::string host_type;
 		std::string host_id;
@@ -93,6 +92,7 @@ class Host
 		friend class Settings;
 	public:
 		// internal state
+		ChiakiDiscoveryHostState state = CHIAKI_DISCOVERY_HOST_STATE_UNKNOWN;
 		bool discovered = false;
 		bool registered = false;
 		// rp_key_data is true when rp_key, rp_regist_key, rp_key_type
