@@ -337,6 +337,13 @@ bool Host::ReadGameKeys(SDL_Event *event, ChiakiControllerState *state){
 					ret = false;
 			}
 			break;
+        case SDL_FINGERDOWN:
+            state->buttons |= CHIAKI_CONTROLLER_BUTTON_TOUCHPAD; // touchscreen
+            break;
+        case SDL_FINGERUP:
+            state->buttons ^= CHIAKI_CONTROLLER_BUTTON_TOUCHPAD; // touchscreen
+            break;
+
 #endif
 		default:
 			ret = false;
