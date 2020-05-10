@@ -60,7 +60,7 @@ void Host::InitVideo(){
 	// set libav video context
 	// for later stream
 
-	int numBytes;
+	int buffer_size;
 	uint8_t * buffer = NULL;
 	this->codec = avcodec_find_decoder(AV_CODEC_ID_H264);
 	if(!this->codec)
@@ -109,6 +109,7 @@ void Host::InitVideo(){
 	this->codec_context->width = 1280;
 	this->codec_context->height = 720;
 	this->codec_context->pix_fmt = AV_PIX_FMT_YUV420P;
+	this->codec_context->thread_count = 20;
 	// sws context to convert frame data to YUV420:
 	// {"width":1280,"height":720}
 	// AV_PIX_FMT_BGR24
@@ -120,20 +121,20 @@ void Host::InitVideo(){
 		this->codec_context->width,
 		this->codec_context->height,
 		AV_PIX_FMT_YUV420P,
-		SWS_BILINEAR,
+		SWS_FAST_BILINEAR,
 		NULL,
 		NULL,
 		NULL
 	);
 
-	numBytes = av_image_get_buffer_size(
+	buffer_size = av_image_get_buffer_size(
 		AV_PIX_FMT_YUV420P,
 		this->codec_context->width,
 		this->codec_context->height,
 		32
 	);
 
-	buffer = (uint8_t *) av_malloc(numBytes * sizeof(uint8_t));
+	buffer = (uint8_t *) av_malloc(buffer_size * sizeof(uint8_t));
 
 	this->pict = av_frame_alloc();
 
@@ -439,16 +440,15 @@ send_packet:
 	// FramesAvailable
 	AVFrame *frame = av_frame_alloc();
 	AVFrame *next_frame = av_frame_alloc();
-	AVFrame *tmp_swp = frame;
+	AVFrame *tmp_swp;
 
 	if(!frame){
 		CHIAKI_LOGE(this->log, "UpdateFrame Failed to alloc AVFrame");
 		return -1;
 	}
 
-	int ret;
 	/*
-	ret = avcodec_receive_frame(this->codec_context, frame);
+	int ret = avcodec_receive_frame(this->codec_context, frame);
 
 	if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
 	{
@@ -461,6 +461,7 @@ send_packet:
 		return -1;
 	}
 	*/
+	int ret;
 	// decode frame
 	do {
 		tmp_swp = frame;
