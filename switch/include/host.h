@@ -21,15 +21,6 @@
 #include <string>
 #include <map>
 #include <netinet/in.h>
-#include <SDL2/SDL.h>
-
-extern "C"
-{
-#include <libavcodec/avcodec.h>
-#include <libavutil/imgutils.h>
-#include <libswscale/swscale.h>
-}
-
 
 #include <chiaki/log.h>
 #include <chiaki/regist.h>
@@ -38,14 +29,14 @@ extern "C"
 #include <chiaki/controller.h>
 
 #include "exception.h"
+#include "io.h"
 
 class DiscoveryManager;
 static void Discovery(ChiakiDiscoveryHost*, void*);
 static void Regist(ChiakiRegistEvent*, void*);
-static bool Video(uint8_t*, size_t, void*);
-static void InitAudio(unsigned int, unsigned int, void*);
-static void Audio(int16_t*, size_t, void*);
-
+static void InitAudio(unsigned int channels, unsigned int rate, void * user);
+static bool Video(uint8_t * buf, size_t buf_size, void * user);
+static void Audio(int16_t * buf, size_t samples_count, void * user);
 
 class Host
 {
@@ -79,15 +70,6 @@ class Host
 		ChiakiOpusDecoder opus_decoder;
 		ChiakiConnectVideoProfile video_profile;
 		ChiakiControllerState keyboard_state;
-		unsigned int audio_buffer_size;
-		// share video from main loop and host obj
-		AVCodec *codec;
-		AVCodecContext *codec_context;
-		struct SwsContext * sws_context = NULL;
-		// audio vars
-		SDL_AudioDeviceID audio_device_id;
-		// use friend class and methodes
-		// to allow private var access
 		friend class DiscoveryManager;
 		friend class Settings;
 	public:
@@ -100,22 +82,15 @@ class Host
 		std::string host_addr;
 		// share picture frame
 		// with main function
-		AVFrame *pict;
 		Host(ChiakiLog *log):log(log) {};
 		Host(){};
 		static Host * GetOrCreate(ChiakiLog*, std::map<std::string, Host>*, std::string*);
-		void InitVideo();
 		int Register(std::string pin);
 		int Wakeup();
-		int ConnectSession();
+		int ConnectSession(IO *);
 		void StartSession();
-		bool ReadGameKeys(SDL_Event*, ChiakiControllerState*);
 		void SendFeedbackState(ChiakiControllerState*);
-		// callback methods
 		void RegistCB(ChiakiRegistEvent*);
-		bool VideoCB(uint8_t*, size_t);
-		void InitAudioCB(unsigned int, unsigned int);
-		void AudioCB(int16_t*, size_t);
 };
 
 #endif
