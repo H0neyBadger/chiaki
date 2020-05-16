@@ -111,7 +111,7 @@ else()
 	target_link_libraries(chiaki-lib OpenSSL::Crypto)
 endif()
 
-if(CHIAKI_ENABLE_SWITCH AND NOT CHIAKI_ENABLE_SWITCH_LINUX)
+if(CHIAKI_ENABLE_SWITCH AND NOT CHIAKI_SWITCH_ENABLE_LINUX)
 	# to provides csrngGetRandomBytes
 	target_link_libraries(chiaki-lib nx)
 endif()

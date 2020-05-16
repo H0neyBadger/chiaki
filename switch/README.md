@@ -12,26 +12,24 @@ but the easiest way is to use the following container.
 
 Build container image
 ---------------------
-from the [script](../script/switch) folder.
-Here I'm using podman (rootless), but you can use docker instead.
 ```
-podman build --pull --no-cache -t switch_build .
+bash scripts/switch/build-docker-image.sh
 ```
 
 Run container
 -------------
 from the project's [root folder](../)
 ```
-podman run -it --rm \
+docker run -it --rm \
 	-v "$(pwd):/build" \
 	-p 28771:28771 \
-	localhost/switch_build
+	chiaki-switch
 ```
 
 Build Project
 -------------
 ```
-./script/switch/build.sh
+bash scripts/switch/run-docker-build-chiaki.sh
 ```
 
 tools
@@ -39,9 +37,7 @@ tools
 Push to homebrew Netloader
 ```
 # where X.X.X.X is the IP of your switch
-/opt/devkitpro/tools/bin/nxlink \
-	-a 192.168.0.200 -s \
-	./build_switch/switch/chiaki.nro
+scripts/switch/push-docker-build-chiaki.sh 192.168.0.200
 ```
 
 Troubleshoot

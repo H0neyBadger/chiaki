@@ -28,7 +28,7 @@
 #define SCREEN_W 1280
 #define SCREEN_H 720
 
-#ifndef CHIAKI_ENABLE_SWITCH_LINUX
+#ifndef CHIAKI_SWITCH_ENABLE_LINUX
 #define CHIAKI_ENABLE_SWITCH_NXLINK 1
 #endif
 
@@ -98,7 +98,7 @@ extern "C" void userAppExit()
 int main(int argc, char* argv[]){
 	// init chiaki lib
 	ChiakiLog log;
-#if defined(CHIAKI_ENABLE_SWITCH_NXLINK) || defined(CHIAKI_ENABLE_SWITCH_LINUX)
+#if defined(CHIAKI_ENABLE_SWITCH_NXLINK) || defined(CHIAKI_SWITCH_ENABLE_LINUX)
 	chiaki_log_init(&log, CHIAKI_LOG_ALL ^ CHIAKI_LOG_VERBOSE, chiaki_log_cb_print, NULL);
 	//chiaki_log_init(&log, CHIAKI_LOG_ALL, chiaki_log_cb_print, NULL);
 #else
@@ -123,7 +123,8 @@ int main(int argc, char* argv[]){
 	CHIAKI_LOGI(&log, "Loading Window");
 	// build sdl OpenGl and AV decoders graphical interface
 	IO io = IO(&log); // open Input Output class
-	if(!io.InitVideo(SCREEN_W, SCREEN_H, SCREEN_W, SCREEN_H)){
+	// set video size to 0
+	if(!io.InitVideo(0, 0, SCREEN_W, SCREEN_H)){
 		CHIAKI_LOGE(&log, "Failed to initiate Video");
 		return 1;
 	}

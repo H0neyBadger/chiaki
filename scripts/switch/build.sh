@@ -3,10 +3,10 @@
 set -xveo pipefail
 
 arg1=$1
-CHIAKI_ENABLE_SWITCH_LINUX="ON"
+CHIAKI_SWITCH_ENABLE_LINUX="ON"
 build="./build"
 if [ "$arg1" != "linux" ]; then
-  CHIAKI_ENABLE_SWITCH_LINUX="OFF"
+  CHIAKI_SWITCH_ENABLE_LINUX="OFF"
   source /opt/devkitpro/switchvars.sh
   toolchain=../cmake/switch.cmake # TODO: devkitpro ships a toolchain in /opt/devkitpro/switch.cmake, but it's broken.
 
@@ -28,7 +28,7 @@ build_chiaki (){
       -DCHIAKI_ENABLE_GUI=OFF \
       -DCHIAKI_ENABLE_ANDROID=OFF \
       -DCHIAKI_ENABLE_SWITCH=ON \
-      -DCHIAKI_ENABLE_SWITCH_LINUX="${CHIAKI_ENABLE_SWITCH_LINUX}" \
+      -DCHIAKI_SWITCH_ENABLE_LINUX="${CHIAKI_SWITCH_ENABLE_LINUX}" \
       -DCHIAKI_LIB_ENABLE_MBEDTLS=ON
 
     pushd "${BASEDIR}/${build}"

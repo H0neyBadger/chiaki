@@ -78,9 +78,16 @@ static const float vert_pos[] = {
 };
 
 IO::IO(ChiakiLog * log):
+#ifndef CHIAKI_SWITCH_ENABLE_OPENGL
+	codec(nullptr),
+	texture(nullptr),
+	renderer(nullptr),
+	pict(nullptr),
+	pict_buffer(nullptr),
+	sws_context(nullptr),
+#endif
 	log(log),
 	codec_context(nullptr),
-	codec(nullptr),
 	sdl_window(nullptr)
 {
 	//TODO
@@ -92,6 +99,7 @@ IO::~IO(){
 
 #define DEBUG_OPENGL 1
 
+#ifdef CHIAKI_SWITCH_ENABLE_OPENGL
 void IO::SetMesaConfig(){
   //TRACE("%s", "Mesaconfig");
   //setenv("MESA_GL_VERSION_OVERRIDE", "3.3", 1);
@@ -110,16 +118,11 @@ void IO::SetMesaConfig(){
   //setenv("NV50_PROG_CHIPSET", "0x120", 1);
 #endif
 }
+#endif
 
-
-#ifdef DEBUG_OPENGL
+#if defined(DEBUG_OPENGL) && defined(CHIAKI_SWITCH_ENABLE_OPENGL)
 #define D(x){ (x); CheckGLError(__func__, __FILE__, __LINE__); }
 #define S(x){ (x); CheckSDLError(__func__, __FILE__, __LINE__); }
-#else
-// do nothing
-#define D(x){ (x); }
-#define S(x){ (x); }
-#endif
 
 void IO::CheckGLError(const char* func, const char* file, int line) {
 	GLenum err;
@@ -139,6 +142,12 @@ void IO::CheckSDLError(const char* func, const char* file, int line) {
 	if(err = SDL_GetError())
 		CHIAKI_LOGE(this->log, "SDL_GetError: %s function: %s from %s line %d", err, func, file, line);
 }
+#else
+// do nothing
+#define D(x){ (x); }
+#define S(x){ (x); }
+#endif
+
 
 bool IO::VideoCB(uint8_t *buf, size_t buf_size){
 	// callback function to decode video buffer
@@ -182,8 +191,33 @@ send_packet:
 		av_frame_free(&frame);
 		return false;
 	}
+
+	std::unique_lock<std::mutex> lck(mtx);
+	while(cargo != 0) produce.wait(lck);
+
+	if(frame->width != this->video_width
+		|| frame->height != this->video_height ){
+
+		ResizeVideo(frame->width, frame->height);
+	}
+
+#ifdef CHIAKI_SWITCH_ENABLE_OPENGL
 	// send to OpenGl
 	SetOpenGlYUVPixels(frame);
+#else
+	sws_scale(
+		this->sws_context,
+		(uint8_t const * const *)frame->data,
+		frame->linesize,
+		0,
+		this->codec_context->height,
+		this->pict->data,
+		this->pict->linesize
+	);
+#endif
+	cargo = !cargo;
+	consume.notify_one();
+
 	av_frame_free(&frame);
 	return true;
 }
@@ -231,7 +265,6 @@ bool IO::InitVideo(int video_width, int video_height, int screen_width, int scre
 	this->screen_width = screen_width;
 	this->screen_height = screen_height;
 
-	SetMesaConfig();
 
 	this->init_sdl = InitSDLWindow();
 	if(!this->init_sdl){
@@ -241,24 +274,45 @@ bool IO::InitVideo(int video_width, int video_height, int screen_width, int scre
 	if(!InitAVCodec()){
 		throw Exception("Failed to initiate libav codec");
 	}
-
+#ifdef CHIAKI_SWITCH_ENABLE_OPENGL
+	SetMesaConfig();
 	if(!InitOpenGl()){
 		throw Exception("Failed to initiate OpenGl");
 	}
 	SDL_GL_MakeCurrent(this->sdl_window, NULL);
+#else
+	if(!InitSDLTextures()){
+		throw Exception("Failed to initiate SDLTexture");
+	}
+#endif
 	return true;
 }
 
 bool IO::FreeVideo(){
 	bool ret = true;
+
 	if(this->init_sdl){
 		ret &= FreeSDLWindow();
 	}
+
+#ifndef CHIAKI_SWITCH_ENABLE_OPENGL
+	//codec(nullptr),
+	//sws_context(nullptr),
+	if(this->pict_buffer != nullptr){
+		av_free(this->pict_buffer);
+	}
+
+	if(this->pict){
+		av_frame_free(&this->pict);
+	}
+	SDL_DestroyRenderer(this->renderer);
+	SDL_DestroyWindow(this->sdl_window);
+#endif
 	return ret;
 }
 
 bool IO::ReadUserKeyboard(char *buffer, size_t buffer_size){
-#ifdef CHIAKI_ENABLE_SWITCH_LINUX
+#ifdef CHIAKI_SWITCH_ENABLE_LINUX
 	// use cin to get user input from linux
 	std::cin.getline(buffer, buffer_size);
 	CHIAKI_LOGI(this->log, "Got user input: %s\n", buffer);
@@ -421,48 +475,13 @@ bool IO::InitSDLWindow(){
 		return false;
 	}
 
-	SDL_Renderer* renderer = SDL_CreateRenderer(this->sdl_window, -1, SDL_RENDERER_ACCELERATED);
-	if (!renderer) {
-		CHIAKI_LOGE(this->log, "SDL_CreateRenderer failed: %s", SDL_GetError());
-		return false;
-	}
-
-#ifdef __SWTITCH__
-	S(SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE));
-	S(SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4));
-	S(SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3));
-#else
-	S(SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE));
-	S(SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3));
-	S(SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3));
-#endif
-
-	//S(SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1));
-	S(SDL_GL_SetSwapInterval(1));
-	S(SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 1));
-
-	this->sdl_gl_context = SDL_GL_CreateContext(this->sdl_window);
-	if(this->sdl_gl_context == NULL){
-		CHIAKI_LOGE(this->log, "SSDL_GL_CreateContext failed: %s", SDL_GetError());
-	}
-
-	SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_DEBUG_FLAG);
-
-	SDL_GL_MakeCurrent(this->sdl_window, this->sdl_gl_context);
-
-    // Load GL extensions using glad
-    if (!gladLoadGLLoader((GLADloadproc) SDL_GL_GetProcAddress)) {
-		CHIAKI_LOGE(this->log, "Failed to initialize the OpenGL context.");
-		return false;
-    }
-	CHIAKI_LOGI(this->log, "OpenGL version loaded: %d.%d", GLVersion.major, GLVersion.minor);
-
-	//gladLoadGL();
    	return true;
 }
 
 bool IO::FreeSDLWindow(){
+#ifdef CHIAKI_SWITCH_ENABLE_OPENGL
 	SDL_GL_DeleteContext(this->sdl_gl_context);
+#endif
 	SDL_DestroyWindow(this->sdl_window);
 	SDL_Quit();
 	return true;
@@ -487,9 +506,34 @@ bool IO::InitAVCodec(){
 	return true;
 }
 
-
+#ifdef CHIAKI_SWITCH_ENABLE_OPENGL
 bool IO::InitOpenGl(){
 	CHIAKI_LOGV(this->log, "loading OpenGL");
+
+	// Set SDL OpenGl context
+	S(SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE));
+	S(SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3));
+	S(SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3));
+
+	//S(SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1));
+	S(SDL_GL_SetSwapInterval(1));
+	S(SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 1));
+
+	this->sdl_gl_context = SDL_GL_CreateContext(this->sdl_window);
+	if(this->sdl_gl_context == NULL){
+		CHIAKI_LOGE(this->log, "SSDL_GL_CreateContext failed: %s", SDL_GetError());
+	}
+
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_DEBUG_FLAG);
+
+	SDL_GL_MakeCurrent(this->sdl_window, this->sdl_gl_context);
+
+    // Load GL extensions using glad
+    if (!gladLoadGLLoader((GLADloadproc) SDL_GL_GetProcAddress)) {
+		CHIAKI_LOGE(this->log, "Failed to initialize the OpenGL context.");
+		return false;
+    }
+	CHIAKI_LOGI(this->log, "OpenGL version loaded: %d.%d", GLVersion.major, GLVersion.minor);
 
 	if(!InitOpenGlShader()){
 		return false;
@@ -592,45 +636,6 @@ bool IO::InitOpenGlShader() {
 	return true;
 }
 
-bool IO::OpenGlResizeScreen(int width, int height) {
-	if(width <= 0 || height <=0){
-		CHIAKI_LOGE(this->log, "Invalid screen size %dx%d", width, height);
-		return false;
-	}
-	this->screen_width = width;
-	this->screen_height = height;
-
-
-	float vp_height, vp_width;
-	float aspect = (float)this->video_width / (float)this->video_height;
-	if(aspect < (float)this->screen_width / (float)this->screen_height){
-		vp_height = this->screen_height;
-		vp_width = (GLsizei)(vp_height * aspect);
-	} else {
-		vp_width = this->screen_width;
-		vp_height = (GLsizei)(vp_width / aspect);
-	}
-	D(glViewport((this->screen_width - vp_width) / 2, (this->screen_height - vp_height) / 2, vp_width, vp_height));
-	return true;
-}
-
-bool IO::InitJoystick(){
-	// https://github.com/switchbrew/switch-examples/blob/master/graphics/sdl2/sdl2-simple/source/main.cpp#L57
-    // open CONTROLLER_PLAYER_1 and CONTROLLER_PLAYER_2
-    // when railed, both joycons are mapped to joystick #0,
-    // else joycons are individually mapped to joystick #0, joystick #1, ...
-#ifdef __SWITCH__
-    for (int i = 0; i < 2; i++) {
-        if (SDL_JoystickOpen(i) == NULL) {
-            CHIAKI_LOGE(this->log, "SDL_JoystickOpen: %s\n", SDL_GetError());
-			return false;
-        }
-    }
-#endif
-	//FIXME
-	return true;
-}
-
 void IO::SetOpenGlYUVPixels(AVFrame * frame){
 	int planes[][3] = {
 		// { width_divide, height_divider, data_per_pixel }
@@ -639,8 +644,6 @@ void IO::SetOpenGlYUVPixels(AVFrame * frame){
 		{ 2, 2, 1 }  // V
 	};
 
-	std::unique_lock<std::mutex> lck(mtx);
-	while(cargo !=0) produce.wait(lck);
 	D(SDL_GL_MakeCurrent(this->sdl_window, this->sdl_gl_context));
 	for(int i = 0; i < PLANES_COUNT; i++){
 		int width = frame->width / planes[i][0];
@@ -679,23 +682,10 @@ void IO::SetOpenGlYUVPixels(AVFrame * frame){
 	}
 	glFinish();
 	SDL_GL_MakeCurrent(this->sdl_window, NULL);
-	cargo = !cargo;
-	consume.notify_one();
 }
 
-void IO::OpenGlDraw(int x, int y, int w, int h) {
-
-	if(w == 0) {
-	  w = this->video_width;
-	}
-
-	if(h == 0) {
-	  h = this->video_height;
-	}
-
+void IO::OpenGlDraw() {
 	glClear(GL_COLOR_BUFFER_BIT);
-
-	OpenGlResizeScreen(w, h);
 
 	for(int i=0; i< PLANES_COUNT; i++) {
 		D(glActiveTexture(GL_TEXTURE0 + i));
@@ -705,7 +695,148 @@ void IO::OpenGlDraw(int x, int y, int w, int h) {
 	D(glDrawArrays(GL_TRIANGLE_STRIP, 0, 4));
 	D(glFinish());
 }
+#else
 
+bool IO::InitSDLTextures() {
+	this->renderer = SDL_CreateRenderer(this->sdl_window, -1, SDL_RENDERER_ACCELERATED);
+	if (!renderer) {
+		CHIAKI_LOGE(this->log, "SDL_CreateRenderer failed: %s", SDL_GetError());
+		return false;
+	}
+
+	// https://github.com/raullalves/player-cpp-ffmpeg-sdl/blob/master/Player.cpp
+	this->texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_YV12,
+		SDL_TEXTUREACCESS_STREAMING, this->screen_width, this->screen_height);
+
+	if(!this->texture){
+		CHIAKI_LOGE(log, "SDL_CreateTexture failed: %s", SDL_GetError());
+		SDL_Quit();
+		return false;
+	}
+	return true;
+}
+
+
+
+void IO::SDLDraw() {
+
+	SDL_UpdateYUVTexture(
+		this->texture,
+		&this->rect,
+		this->pict->data[0],
+		this->pict->linesize[0],
+		this->pict->data[1],
+		this->pict->linesize[1],
+		this->pict->data[2],
+		this->pict->linesize[2]
+	);
+
+	SDL_RenderClear(this->renderer);
+	SDL_RenderCopy(this->renderer, this->texture, NULL, NULL);
+	SDL_RenderPresent(this->renderer);
+	SDL_UpdateWindowSurface(this->sdl_window);
+
+}
+#endif
+
+bool IO::InitJoystick(){
+	// https://github.com/switchbrew/switch-examples/blob/master/graphics/sdl2/sdl2-simple/source/main.cpp#L57
+    // open CONTROLLER_PLAYER_1 and CONTROLLER_PLAYER_2
+    // when railed, both joycons are mapped to joystick #0,
+    // else joycons are individually mapped to joystick #0, joystick #1, ...
+#ifdef __SWITCH__
+    for (int i = 0; i < 2; i++) {
+        if (SDL_JoystickOpen(i) == NULL) {
+            CHIAKI_LOGE(this->log, "SDL_JoystickOpen: %s\n", SDL_GetError());
+			return false;
+        }
+    }
+#endif
+	//FIXME
+	return true;
+}
+
+bool IO::ResizeVideo(int width, int height) {
+	if(width <= 0 || height <=0){
+		CHIAKI_LOGE(this->log, "Invalid Video size %dx%d", width, height);
+		return false;
+	}
+	this->video_width = width;
+	this->video_height = height;
+
+#ifdef CHIAKI_SWITCH_ENABLE_OPENGL
+	float vp_height, vp_width;
+	float aspect = (float)this->video_width / (float)this->video_height;
+	if(aspect < (float)this->screen_width / (float)this->screen_height){
+		vp_height = this->screen_height;
+		vp_width = (GLsizei)(vp_height * aspect);
+	} else {
+		vp_width = this->screen_width;
+		vp_height = (GLsizei)(vp_width / aspect);
+	}
+	D(glViewport((this->screen_width - vp_width) / 2, (this->screen_height - vp_height) / 2, vp_width, vp_height));
+
+#else
+	int buffer_size;
+
+	this->rect.x = 0;
+	this->rect.y = 0;
+	this->rect.w = this->screen_width;
+	this->rect.h = this->screen_height;
+
+	this->codec_context->width = this->screen_width;
+	this->codec_context->height = this->screen_height;
+	this->codec_context->pix_fmt = AV_PIX_FMT_YUV420P;
+	printf("->>> screen %d %d video %d %d\n",
+		this->codec_context->width, this->codec_context->height,
+		this->video_width, this->video_height);
+
+	this->sws_context = sws_getContext(
+		this->video_width,
+		this->video_height,
+		this->codec_context->pix_fmt,
+		this->codec_context->width,
+		this->codec_context->height,
+		AV_PIX_FMT_YUV420P,
+		SWS_FAST_BILINEAR,
+		NULL,
+		NULL,
+		NULL
+	);
+
+	// Allocate maximum 1080p size
+	// to avoid buffer recreation
+	// in Resize function
+	buffer_size = av_image_get_buffer_size(
+		AV_PIX_FMT_YUV420P,
+		this->codec_context->width,
+		this->codec_context->height,
+		32
+	);
+
+	// FIXME free buffer
+	if(this->pict_buffer){
+		printf("pict_buffer %p\n", this->pict_buffer);
+		av_free(this->pict_buffer);
+	}
+
+	this->pict_buffer = (uint8_t *) av_malloc(buffer_size * sizeof(uint8_t));
+
+	this->pict = av_frame_alloc();
+
+	av_image_fill_arrays(
+		this->pict->data,
+		this->pict->linesize,
+		this->pict_buffer,
+		AV_PIX_FMT_YUV420P,
+		this->codec_context->width,
+		this->codec_context->height,
+		32
+	);
+#endif
+
+	return true;
+}
 bool IO::MainLoop(ChiakiControllerState * state){
 	// handle SDL events
 	while(SDL_PollEvent(&this->sdl_event)){
@@ -716,18 +847,23 @@ bool IO::MainLoop(ChiakiControllerState * state){
 				return false;
 		}
 	}
-
 	std::unique_lock<std::mutex> lck(mtx);
 	while(cargo == 0) consume.wait(lck);
+
+#ifdef CHIAKI_SWITCH_ENABLE_OPENGL
 	D(SDL_GL_MakeCurrent(this->sdl_window, this->sdl_gl_context));
 	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	OpenGlDraw(0, 0, this->screen_width, this->screen_height);
+	OpenGlDraw();
 	//SDL_UpdateWindowSurface(this->sdl_window);
 	SDL_GL_SwapWindow(this->sdl_window);
 	SDL_GL_MakeCurrent(this->sdl_window, NULL);
+#else
+	SDLDraw();
+#endif
 	cargo = !cargo;
 	produce.notify_one();
+
 	/*
 	uint32_t end = SDL_GetTicks();
 	// ~60 fps

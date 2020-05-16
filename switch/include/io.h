@@ -21,13 +21,11 @@
 #include <cstdint>
 #include <SDL2/SDL.h>
 
+#ifdef CHIAKI_SWITCH_ENABLE_OPENGL
 #include <EGL/egl.h>    // EGL library
 #include <EGL/eglext.h> // EGL extensions
 #include <glad/glad.h>  // glad library (OpenGL loader)
-
-#include <glm/mat4x4.hpp>
-//#include <glm/gtc/type_ptr.hpp>
-#include <glm/gtc/matrix_transform.hpp>
+#endif
 
 
 /*
@@ -51,7 +49,9 @@ extern "C"
 {
 #include <libavcodec/avcodec.h>
 #include <libavutil/imgutils.h>
+#ifndef CHIAKI_SWITCH_ENABLE_OPENGL
 #include <libswscale/swscale.h>
+#endif
 }
 
 #include <chiaki/log.h>
@@ -72,6 +72,13 @@ class IO {
 		// default nintendo switch res
 		int screen_width = 1280;
 		int screen_height = 720;
+		AVCodec * codec;
+		AVCodecContext * codec_context;
+		SDL_Window * sdl_window;
+		SDL_AudioDeviceID sdl_audio_device_id;
+		SDL_Event sdl_event;
+#ifdef CHIAKI_SWITCH_ENABLE_OPENGL
+		SDL_GLContext sdl_gl_context;
 		GLuint vao;
 		GLuint vbo;
 		GLuint tex[PLANES_COUNT];
@@ -79,26 +86,34 @@ class IO {
 		GLuint vert;
 		GLuint frag;
 		GLuint prog;
-		AVCodecContext * codec_context;
-		AVCodec * codec;
-		SDL_Window * sdl_window;
-		SDL_GLContext sdl_gl_context;
-		SDL_AudioDeviceID sdl_audio_device_id;
-		SDL_Event sdl_event;
+#else
+		SDL_Rect rect;
+		SDL_Texture * texture;
+		SDL_Renderer * renderer;
+		AVFrame * pict;
+		uint8_t * pict_buffer;
+		struct SwsContext * sws_context;
+#endif
 	private:
 		bool InitSDLWindow();
 		bool FreeSDLWindow();
 		bool InitAVCodec();
+		bool ResizeVideo(int width, int height);
+#ifdef CHIAKI_SWITCH_ENABLE_OPENGL
 		bool InitOpenGl();
 		bool InitOpenGlTextures();
 		bool InitOpenGlShader();
-		GLuint CreateAndCompileShader(GLenum type, const char* source);
-		void SetOpenGlYUVPixels(AVFrame * frame);
-		void OpenGlDraw(int x, int y, int w, int h);
-		bool ReadGameKeys(SDL_Event * event, ChiakiControllerState * state);
+		void OpenGlDraw();
 		void SetMesaConfig();
 		void CheckGLError(const char* func, const char* file, int line);
 		void CheckSDLError(const char* func, const char* file, int line);
+		GLuint CreateAndCompileShader(GLenum type, const char* source);
+		void SetOpenGlYUVPixels(AVFrame * frame);
+#else
+		bool InitSDLTextures();
+		void SDLDraw();
+#endif
+		bool ReadGameKeys(SDL_Event * event, ChiakiControllerState * state);
 	public:
 		IO(ChiakiLog * log);
 		~IO();
@@ -110,7 +125,6 @@ class IO {
 		bool InitJoystick();
 		bool ReadUserKeyboard(char * buffer, size_t buffer_size);
 		bool MainLoop(ChiakiControllerState * state);
-		bool OpenGlResizeScreen(int width, int height);
 };
 
 #endif //CHIAKI_IO_H
