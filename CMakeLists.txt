@@ -18,7 +18,7 @@ tri_option(CHIAKI_ENABLE_SETSU "Enable libsetsu for touchpad input from controll
 option(CHIAKI_LIB_ENABLE_OPUS "Use Opus as part of Chiaki Lib" ON)
 option(CHIAKI_LIB_ENABLE_MBEDTLS "Use mbedtls instead of OpenSSL as part of Chiaki Lib" OFF)
 option(CHIAKI_LIB_OPENSSL_EXTERNAL_PROJECT "Use OpenSSL as CMake external project" OFF)
-option(CHIAKI_SWITCH_ENABLE_OPENGL "Use OpenGL to render YUV frames" ON)
+option(CHIAKI_SWITCH_ENABLE_OPENGL "Use OpenGL to render YUV frames" OFF)
 option(CHIAKI_GUI_ENABLE_QT_GAMEPAD "Use QtGamepad for Input" OFF)
 option(CHIAKI_GUI_ENABLE_SDL_GAMECONTROLLER "Use SDL Gamecontroller for Input" ON)
 option(CHIAKI_CLI_ARGP_STANDALONE "Search for standalone argp lib for CLI" OFF)
@@ -52,7 +52,6 @@ elseif(CHIAKI_ENABLE_SWITCH)
 	# TODO check if android ... or other versions are enabled
 	# force mbedtls as crypto lib
 	set(CHIAKI_LIB_ENABLE_MBEDTLS ON)
-	set(CHIAKI_SWITCH_ENABLE_OPENGL ON)
 endif()
 
 add_subdirectory(third-party)

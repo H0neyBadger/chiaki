@@ -191,3 +191,26 @@ void Host::RegistCB(ChiakiRegistEvent *event){
 	}
 }
 
+bool Host::GetVideoResolution(int * ret_width, int * ret_height){
+	switch(this->video_resolution){
+		case CHIAKI_VIDEO_RESOLUTION_PRESET_360p:
+			*ret_width = 640;
+			*ret_height = 360;
+			break;
+		case CHIAKI_VIDEO_RESOLUTION_PRESET_540p:
+			*ret_width = 950;
+			*ret_height = 540;
+			break;
+		case CHIAKI_VIDEO_RESOLUTION_PRESET_720p:
+			*ret_width = 1280;
+			*ret_height = 720;
+			break;
+		case CHIAKI_VIDEO_RESOLUTION_PRESET_1080p:
+			*ret_width = 1920;
+			*ret_height = 1080;
+			break;
+		default:
+			return false;
+	}
+	return true;
+}

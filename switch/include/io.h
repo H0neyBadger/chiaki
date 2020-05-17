@@ -70,6 +70,7 @@ class IO {
 		// opengl reader writer
 		int cargo = 0;
 		// default nintendo switch res
+		bool resize = true;
 		int screen_width = 1280;
 		int screen_height = 720;
 		AVCodec * codec;
@@ -91,14 +92,12 @@ class IO {
 		SDL_Texture * texture;
 		SDL_Renderer * renderer;
 		AVFrame * pict;
-		uint8_t * pict_buffer;
 		struct SwsContext * sws_context;
 #endif
 	private:
 		bool InitSDLWindow();
 		bool FreeSDLWindow();
 		bool InitAVCodec();
-		bool ResizeVideo(int width, int height);
 #ifdef CHIAKI_SWITCH_ENABLE_OPENGL
 		bool InitOpenGl();
 		bool InitOpenGlTextures();
@@ -122,6 +121,7 @@ class IO {
 		void AudioCB(int16_t * buf, size_t samples_count);
 		bool InitVideo(int video_width, int video_height, int screen_width, int screen_height);
 		bool FreeVideo();
+		bool ResizeVideo(int width, int height);
 		bool InitJoystick();
 		bool ReadUserKeyboard(char * buffer, size_t buffer_size);
 		bool MainLoop(ChiakiControllerState * state);

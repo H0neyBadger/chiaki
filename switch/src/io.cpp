@@ -83,9 +83,9 @@ IO::IO(ChiakiLog * log):
 	texture(nullptr),
 	renderer(nullptr),
 	pict(nullptr),
-	pict_buffer(nullptr),
 	sws_context(nullptr),
 #endif
+	resize(true),
 	log(log),
 	codec_context(nullptr),
 	sdl_window(nullptr)
@@ -97,7 +97,7 @@ IO::~IO(){
 	IO::FreeVideo();
 }
 
-#define DEBUG_OPENGL 1
+// #define DEBUG_OPENGL 1
 
 #ifdef CHIAKI_SWITCH_ENABLE_OPENGL
 void IO::SetMesaConfig(){
@@ -151,12 +151,13 @@ void IO::CheckSDLError(const char* func, const char* file, int line) {
 
 bool IO::VideoCB(uint8_t *buf, size_t buf_size){
 	// callback function to decode video buffer
+
 	AVPacket packet;
+	// av_free_packet(&packet) is deprecated
+	// no need to free AVPacket
 	av_init_packet(&packet);
 	packet.data = buf;
 	packet.size = buf_size;
-	// no need to free packet
-
 	// FramesAvailable
 	AVFrame *frame = av_frame_alloc();
 	if(!frame){
@@ -174,6 +175,7 @@ send_packet:
 			// send decoded frame for sdl texture update
 			if(r != 0){
 				CHIAKI_LOGE(this->log, "Failed to pull frame");
+				av_frame_free(&frame);
 				return false;
 			}
 			goto send_packet;
@@ -181,6 +183,7 @@ send_packet:
 			char errbuf[128];
 			av_make_error_string(errbuf, sizeof(errbuf), r);
 			CHIAKI_LOGE(this->log, "Failed to push frame: %s", errbuf);
+			av_frame_free(&frame);
 			return false;
 		}
 	}
@@ -188,6 +191,7 @@ send_packet:
 	// Pull
 	r = avcodec_receive_frame(this->codec_context, frame);
 	if(r != 0){
+		CHIAKI_LOGE(this->log, "Failed to pull frame");
 		av_frame_free(&frame);
 		return false;
 	}
@@ -197,8 +201,9 @@ send_packet:
 
 	if(frame->width != this->video_width
 		|| frame->height != this->video_height ){
-
-		ResizeVideo(frame->width, frame->height);
+		this->video_width = frame->width;
+		this->video_height = frame->height;
+		this->resize=true;
 	}
 
 #ifdef CHIAKI_SWITCH_ENABLE_OPENGL
@@ -219,8 +224,10 @@ send_packet:
 	consume.notify_one();
 
 	av_frame_free(&frame);
+	//avcodec_flush_buffers(this->codec_context);
 	return true;
 }
+
 
 void IO::InitAudioCB(unsigned int channels, unsigned int rate){
 	SDL_AudioSpec want, have, test;
@@ -265,7 +272,6 @@ bool IO::InitVideo(int video_width, int video_height, int screen_width, int scre
 	this->screen_width = screen_width;
 	this->screen_height = screen_height;
 
-
 	this->init_sdl = InitSDLWindow();
 	if(!this->init_sdl){
 		throw Exception("Failed to initiate SDL window");
@@ -297,11 +303,6 @@ bool IO::FreeVideo(){
 
 #ifndef CHIAKI_SWITCH_ENABLE_OPENGL
 	//codec(nullptr),
-	//sws_context(nullptr),
-	if(this->pict_buffer != nullptr){
-		av_free(this->pict_buffer);
-	}
-
 	if(this->pict){
 		av_frame_free(&this->pict);
 	}
@@ -636,7 +637,7 @@ bool IO::InitOpenGlShader() {
 	return true;
 }
 
-void IO::SetOpenGlYUVPixels(AVFrame * frame){
+inline void IO::SetOpenGlYUVPixels(AVFrame * frame){
 	int planes[][3] = {
 		// { width_divide, height_divider, data_per_pixel }
 		{ 1, 1, 1 }, // Y
@@ -684,7 +685,7 @@ void IO::SetOpenGlYUVPixels(AVFrame * frame){
 	SDL_GL_MakeCurrent(this->sdl_window, NULL);
 }
 
-void IO::OpenGlDraw() {
+inline void IO::OpenGlDraw() {
 	glClear(GL_COLOR_BUFFER_BIT);
 
 	for(int i=0; i< PLANES_COUNT; i++) {
@@ -718,7 +719,7 @@ bool IO::InitSDLTextures() {
 
 
 
-void IO::SDLDraw() {
+inline void IO::SDLDraw() {
 
 	SDL_UpdateYUVTexture(
 		this->texture,
@@ -777,8 +778,6 @@ bool IO::ResizeVideo(int width, int height) {
 	D(glViewport((this->screen_width - vp_width) / 2, (this->screen_height - vp_height) / 2, vp_width, vp_height));
 
 #else
-	int buffer_size;
-
 	this->rect.x = 0;
 	this->rect.y = 0;
 	this->rect.w = this->screen_width;
@@ -787,9 +786,6 @@ bool IO::ResizeVideo(int width, int height) {
 	this->codec_context->width = this->screen_width;
 	this->codec_context->height = this->screen_height;
 	this->codec_context->pix_fmt = AV_PIX_FMT_YUV420P;
-	printf("->>> screen %d %d video %d %d\n",
-		this->codec_context->width, this->codec_context->height,
-		this->video_width, this->video_height);
 
 	this->sws_context = sws_getContext(
 		this->video_width,
@@ -798,43 +794,23 @@ bool IO::ResizeVideo(int width, int height) {
 		this->codec_context->width,
 		this->codec_context->height,
 		AV_PIX_FMT_YUV420P,
-		SWS_FAST_BILINEAR,
+		SWS_BILINEAR,
 		NULL,
 		NULL,
 		NULL
 	);
 
-	// Allocate maximum 1080p size
-	// to avoid buffer recreation
-	// in Resize function
-	buffer_size = av_image_get_buffer_size(
-		AV_PIX_FMT_YUV420P,
-		this->codec_context->width,
-		this->codec_context->height,
-		32
-	);
+	this->pict = av_frame_alloc();
+    this->pict->format = AV_PIX_FMT_YUV420P;
+    this->pict->width  = this->screen_width;
+    this->pict->height = this->screen_height;
 
-	// FIXME free buffer
-	if(this->pict_buffer){
-		printf("pict_buffer %p\n", this->pict_buffer);
-		av_free(this->pict_buffer);
+	if(av_frame_get_buffer(this->pict, 0) < 0){
+		CHIAKI_LOGE(this->log, "failed to get frame buffer");
 	}
 
-	this->pict_buffer = (uint8_t *) av_malloc(buffer_size * sizeof(uint8_t));
-
-	this->pict = av_frame_alloc();
-
-	av_image_fill_arrays(
-		this->pict->data,
-		this->pict->linesize,
-		this->pict_buffer,
-		AV_PIX_FMT_YUV420P,
-		this->codec_context->width,
-		this->codec_context->height,
-		32
-	);
 #endif
-
+	this->resize = false;
 	return true;
 }
 bool IO::MainLoop(ChiakiControllerState * state){
@@ -847,9 +823,13 @@ bool IO::MainLoop(ChiakiControllerState * state){
 				return false;
 		}
 	}
+
 	std::unique_lock<std::mutex> lck(mtx);
 	while(cargo == 0) consume.wait(lck);
 
+	if(this->resize){
+		IO::ResizeVideo(this->video_width, this->video_height);
+	}
 #ifdef CHIAKI_SWITCH_ENABLE_OPENGL
 	D(SDL_GL_MakeCurrent(this->sdl_window, this->sdl_gl_context));
 	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);

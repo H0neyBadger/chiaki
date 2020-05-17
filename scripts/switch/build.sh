@@ -12,6 +12,8 @@ if [ "$arg1" != "linux" ]; then
 
   export CC=${TOOL_PREFIX}gcc
   export CXX=${TOOL_PREFIX}g++
+  # force -O3 for dependecy build
+  export CFLAGS="${ARCH} -O3 -ffunction-sections -fdata-sections"
   build="./build_switch"
 fi
 

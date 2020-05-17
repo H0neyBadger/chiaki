@@ -24,15 +24,15 @@ target_include_directories(chiaki PRIVATE include)
 
 # WARNING lib order matter
 target_link_libraries(chiaki chiaki-lib)
-target_link_libraries(chiaki FFMPEG::avcodec FFMPEG::avutil)
+target_link_libraries(chiaki SDL2 EGL FFMPEG::avcodec FFMPEG::avutil)
 if(CHIAKI_SWITCH_ENABLE_OPENGL)
 	add_definitions(-DCHIAKI_SWITCH_ENABLE_OPENGL)
 	if(CHIAKI_SWITCH_ENABLE_LINUX)
-		target_link_libraries(chiaki SDL2::SDL2 EGL glapi dl)
+		target_link_libraries(chiaki dl)
 	else()
 		#  -lSDL2 -lavcodec -lavutil -lswscale -lglad -lEGL -lglapi -ldrm_nouveau -lnx
 		# use libnx last
-		target_link_libraries(chiaki SDL2 glad EGL glapi drm_nouveau)
+		target_link_libraries(chiaki glad)
 	endif()
 else()
 	target_link_libraries(chiaki FFMPEG::swscale)
@@ -43,7 +43,7 @@ if(CHIAKI_SWITCH_ENABLE_LINUX)
 	target_link_libraries(chiaki dl)
 else()
 	# use libnx last
-	target_link_libraries(chiaki nx m)
+	target_link_libraries(chiaki glapi drm_nouveau nx m)
 endif()
 
 install(TARGETS chiaki

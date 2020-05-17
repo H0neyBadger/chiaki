@@ -85,6 +85,7 @@ class Host
 		Host(ChiakiLog *log):log(log) {};
 		Host(){};
 		static Host * GetOrCreate(ChiakiLog*, std::map<std::string, Host>*, std::string*);
+		bool GetVideoResolution(int * ret_width, int * ret_height);
 		int Register(std::string pin);
 		int Wakeup();
 		int ConnectSession(IO *);

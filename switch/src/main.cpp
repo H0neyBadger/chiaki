@@ -25,6 +25,10 @@
 #include "settings.h"
 #include "io.h"
 
+// max                   1785000000
+#define SWITCH_OVERCLOCK 1326000000
+// #define SWITCH_OVERCLOCK 1220000000
+// #define SWITCH_OVERCLOCK 1020000000
 #define SCREEN_W 1280
 #define SCREEN_H 720
 
@@ -107,6 +111,8 @@ int main(int argc, char* argv[]){
 #endif
 
 #ifdef __SWITCH__
+	ClkrstSession cpuSession;
+	clkrstInitialize();
 	socketInitialize(&g_chiakiSocketInitConfig);
 #endif
 
@@ -204,11 +210,25 @@ int main(int argc, char* argv[]){
 	// store joycon keys
 	ChiakiControllerState state = { 0 };
 
+#ifdef __SWITCH__
+	CHIAKI_LOGI(&log, "Overclock Nintendo Switch to SWITCH_OVERCLOCK = %d", SWITCH_OVERCLOCK);
+	clkrstOpenSession(&cpuSession, PcvModuleId_CpuBus, 3);
+	clkrstSetClockRate(&cpuSession, SWITCH_OVERCLOCK);
+#endif
+	int video_width = 0;
+	int video_height = 0;
+	host->GetVideoResolution(&video_width, &video_height);
+	io.ResizeVideo(video_width, video_height);
+
 	CHIAKI_LOGI(&log, "Enter applet main loop");
 	while (appletMainLoop() && io.MainLoop(&state))
 	{
         host->SendFeedbackState(&state);
 	}
+#ifdef __SWITCH__
+	clkrstCloseSession(&cpuSession); //end OC
+	clkrstExit();
+#endif
 	CHIAKI_LOGI(&log, "Quit applet");
 	io.FreeVideo();
 	return 0;
