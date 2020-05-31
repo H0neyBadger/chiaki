@@ -43,7 +43,7 @@ if(CHIAKI_SWITCH_ENABLE_LINUX)
 	target_link_libraries(chiaki dl)
 else()
 	# use libnx last
-	target_link_libraries(chiaki glapi drm_nouveau nx m)
+	target_link_libraries(chiaki plutonium glapi drm_nouveau nx m)
 endif()
 
 install(TARGETS chiaki
