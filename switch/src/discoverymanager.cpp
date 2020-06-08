@@ -15,6 +15,10 @@
  * along with Chiaki.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+#ifdef __SWITCH__
+#include <switch.h>
+#endif
+
 #include <netdb.h>
 #include <stdio.h>
 #include <string.h>
@@ -28,12 +32,15 @@ static void Discovery(ChiakiDiscoveryHost *discovered_host, void *user){
 	dm->DiscoveryCB(discovered_host);
 }
 
-int DiscoveryManager::Discover(const char *discover_ip_dest)
-{
-	// use broadcast address to discover host form local network
-	// char *host = "255.255.255.255";
+int DiscoveryManager::Discover(struct sockaddr *host_addr, size_t host_addr_len){
+	if(!host_addr)
+	{
+		CHIAKI_LOGE(log, "Null sockaddr");
+		return 1;
+	}
+
 	ChiakiDiscovery discovery;
-	ChiakiErrorCode err = chiaki_discovery_init(&discovery, log, AF_INET); // TODO: IPv6
+	ChiakiErrorCode err = chiaki_discovery_init(&discovery, log, AF_INET);
 	if(err != CHIAKI_ERR_SUCCESS)
 	{
 		CHIAKI_LOGE(log, "Discovery init failed");
@@ -49,6 +56,22 @@ int DiscoveryManager::Discover(const char *discover_ip_dest)
 		return 1;
 	}
 
+	((struct sockaddr_in *)host_addr)->sin_port = htons(CHIAKI_DISCOVERY_PORT);
+
+	ChiakiDiscoveryPacket packet;
+	memset(&packet, 0, sizeof(packet));
+	packet.cmd = CHIAKI_DISCOVERY_CMD_SRCH;
+
+	chiaki_discovery_send(&discovery, &packet, this->host_addr, this->host_addr_len);
+	//FIXME
+	sleep(1);
+	// join discovery thread
+	chiaki_discovery_thread_stop(&thread);
+	chiaki_discovery_fini(&discovery);
+	return 0;
+}
+
+int DiscoveryManager::Discover(const char *discover_ip_dest){
 	struct addrinfo *host_addrinfos;
 	int r = getaddrinfo(discover_ip_dest, NULL, NULL, &host_addrinfos);
 	if(r != 0)
@@ -66,35 +89,54 @@ int DiscoveryManager::Discover(const char *discover_ip_dest)
 		if(ai->ai_family != AF_INET) // TODO: IPv6
 			continue;
 
-		host_addr_len = ai->ai_addrlen;
-		host_addr = (struct sockaddr *)malloc(host_addr_len);
-		if(!host_addr)
+		this->host_addr_len = ai->ai_addrlen;
+		this->host_addr = (struct sockaddr *)malloc(host_addr_len);
+		if(!this->host_addr)
 			break;
-		memcpy(host_addr, ai->ai_addr, host_addr_len);
+		memcpy(this->host_addr, ai->ai_addr, this->host_addr_len);
 	}
 	freeaddrinfo(host_addrinfos);
 
-	if(!host_addr)
-	{
+	if(!this->host_addr){
 		CHIAKI_LOGE(log, "Failed to get addr for hostname");
 		return 1;
 	}
-
-	((struct sockaddr_in *)host_addr)->sin_port = htons(CHIAKI_DISCOVERY_PORT); // TODO: IPv6
-
-	ChiakiDiscoveryPacket packet;
-	memset(&packet, 0, sizeof(packet));
-	packet.cmd = CHIAKI_DISCOVERY_CMD_SRCH;
-
-	chiaki_discovery_send(&discovery, &packet, host_addr, host_addr_len);
-	//FIXME
-	sleep(1);
-	// join discovery thread
-	chiaki_discovery_thread_stop(&thread);
-	chiaki_discovery_fini(&discovery);
-	return 0;
+	return DiscoveryManager::Discover(this->host_addr, this->host_addr_len);
 }
 
+int DiscoveryManager::Discover(){
+#ifdef __SWITCH__
+	uint32_t current_addr, subnet_mask;
+	// init nintendo net interface service
+    Result rc = nifmInitialize(NifmServiceType_User);
+    if (R_SUCCEEDED(rc)) {
+		// read current IP and netmask
+		rc = nifmGetCurrentIpConfigInfo(
+			&current_addr, &subnet_mask,
+			NULL, NULL, NULL);
+        nifmExit();
+    } else {
+		CHIAKI_LOGE(log, "Failed to get nintendo nifmGetCurrentIpConfigInfo");
+		return 1;
+	}
+
+
+	struct sockaddr_in addr;
+	addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = current_addr | (~subnet_mask);
+    addr.sin_port = htons(CHIAKI_DISCOVERY_PORT);
+
+	this->host_addr_len = sizeof(sockaddr_in);
+	this->host_addr = (struct sockaddr *)malloc(host_addr_len);
+	memcpy(this->host_addr, &addr, this->host_addr_len);
+
+	CHIAKI_LOGI(log, "Read current addr `%p` mask `%p` broadcast `%p`\n", 
+		ntohl(current_addr), ntohl(subnet_mask), ntohl(current_addr | (~subnet_mask)));
+	return DiscoveryManager::Discover(this->host_addr, this->host_addr_len);
+#else
+	return DiscoveryManager::Discover("255.255.255.255");
+#endif
+}
 Host* DiscoveryManager::GetHost(std::string ps4_nickname){
 	auto it = hosts->find(ps4_nickname);
 	if (it != hosts->end()){

@@ -25,6 +25,12 @@
 #include "settings.h"
 #include "io.h"
 
+#ifdef __SWITCH__
+#include <switch.h>
+// plutonium gui
+#include "gui.h"
+#endif
+
 // max                   1785000000
 #define SWITCH_OVERCLOCK 1326000000
 // #define SWITCH_OVERCLOCK 1220000000
@@ -37,7 +43,6 @@
 #endif
 
 #ifdef __SWITCH__
-#include <switch.h>
 // use a custom nintendo switch socket config
 // chiaki requiers many threads with udp/tcp sockets
 static const SocketInitConfig g_chiakiSocketInitConfig = {
@@ -56,10 +61,7 @@ static const SocketInitConfig g_chiakiSocketInitConfig = {
 	.num_bsd_sessions = 16,
 	.bsd_service_type = BsdServiceType_User,
 };
-#else
-int appletMainLoop(){return 1;};
 #endif
-
 
 #ifdef CHIAKI_ENABLE_SWITCH_NXLINK
 static int s_nxlinkSock = -1;
@@ -86,18 +88,35 @@ static void deinitNxLink()
 		s_nxlinkSock = -1;
 	}
 }
+#endif
 
+#ifdef __SWITCH__
 extern "C" void userAppInit()
 {
+#ifdef CHIAKI_ENABLE_SWITCH_NXLINK
 	initNxLink();
+#endif
+	// to load gui resources
+	romfsInit();
+	// load socket custom config
+	socketInitialize(&g_chiakiSocketInitConfig);
 }
 
 extern "C" void userAppExit()
 {
+#ifdef CHIAKI_ENABLE_SWITCH_NXLINK
 	deinitNxLink();
+#endif
+	//reset OC
+	ClkrstSession cpuSession;
+	clkrstInitialize();
+    clkrstOpenSession(&cpuSession, PcvModuleId_CpuBus, 3);
+	// reset default overclock
+    clkrstSetClockRate(&cpuSession, 1020000000);
+	clkrstCloseSession(&cpuSession);
+	clkrstExit();
 }
 #endif
-
 
 int main(int argc, char* argv[]){
 	// init chiaki lib
@@ -109,13 +128,6 @@ int main(int argc, char* argv[]){
 	// null log for switch version
 	chiaki_log_init(&log, 0, chiaki_log_cb_print, NULL);
 #endif
-
-#ifdef __SWITCH__
-	ClkrstSession cpuSession;
-	clkrstInitialize();
-	socketInitialize(&g_chiakiSocketInitConfig);
-#endif
-
 	// load chiaki lib
 	CHIAKI_LOGI(&log, "Loading chaki lib");
 
@@ -130,10 +142,7 @@ int main(int argc, char* argv[]){
 	// build sdl OpenGl and AV decoders graphical interface
 	IO io = IO(&log); // open Input Output class
 	// set video size to 0
-	if(!io.InitVideo(0, 0, SCREEN_W, SCREEN_H)){
-		CHIAKI_LOGE(&log, "Failed to initiate Video");
-		return 1;
-	}
+
 
 	// manage ps4 setting discovery wakeup and registration
 	std::map<std::string, Host> hosts;
@@ -143,20 +152,42 @@ int main(int argc, char* argv[]){
 	// FIXME use GUI for config
 	settings.ParseFile();
 	DiscoveryManager discoverymanager = DiscoveryManager(&log, &hosts);
-
+	CHIAKI_LOGI(&log, "Call Discover");
+	//int d = discoverymanager.Discover("255.255.255.255");
+	//int d = discoverymanager.Discover("192.168.0.255");
+	int d = discoverymanager.Discover();
+#ifdef __SWITCH__
+	// load Plutonium GUI
+	auto plutonium_renderer_options = pu::ui::render::RendererInitOptions(SDL_INIT_EVERYTHING,
+		pu::ui::render::RendererHardwareFlags).WithIMG(pu::ui::render::IMGAllFlags).WithMixer(pu::ui::render::MixerAllFlags).WithTTF();
+	auto plutonium_renderer = pu::ui::render::Renderer::New(plutonium_renderer_options);
+	auto plutonium_app = MainApplication::New(plutonium_renderer, &hosts, &io);
+    plutonium_app->Prepare();
+    plutonium_app->Show();
+	// retrieve ps4 gui host ptr
+	Host * host = plutonium_app->GetHost();
+	/*
+	io.SetSDLWindow(pu::ui::render::GetMainWindow());
+	io.SetSDLRenderer(pu::ui::render::GetMainRenderer());
+	*/
+	printf("bye");
+	return 0;
+#else
 	size_t host_count = hosts.size();
-
 	if(host_count != 1){
 		// FIXME
 		CHIAKI_LOGE(&log, "too many or to too few host to connect");
 		return 1;
 	}
 	// pick the first host of the map
-	Host *host = &hosts.begin()->second;
+	Host * host = &hosts.begin()->second;
 	// int c = discoverymanager.ParseSettings();
-	CHIAKI_LOGI(&log, "Call Discover");
-	int d = discoverymanager.Discover(host->host_addr.c_str());
 	CHIAKI_LOGI(&log, "Open %s host", host->host_addr.c_str());
+#endif
+	if(!io.InitVideo(0, 0, SCREEN_W, SCREEN_H)){
+		CHIAKI_LOGE(&log, "Failed to initiate Video");
+		return 1;
+	}
 
 	if(host->state == CHIAKI_DISCOVERY_HOST_STATE_UNKNOWN){
 		CHIAKI_LOGE(&log, "Failed to discover host (network issue ?)");
@@ -212,6 +243,8 @@ int main(int argc, char* argv[]){
 
 #ifdef __SWITCH__
 	CHIAKI_LOGI(&log, "Overclock Nintendo Switch to SWITCH_OVERCLOCK = %d", SWITCH_OVERCLOCK);
+	ClkrstSession cpuSession;
+	clkrstInitialize();
 	clkrstOpenSession(&cpuSession, PcvModuleId_CpuBus, 3);
 	clkrstSetClockRate(&cpuSession, SWITCH_OVERCLOCK);
 #endif

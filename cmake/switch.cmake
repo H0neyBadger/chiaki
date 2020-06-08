@@ -7,15 +7,16 @@ endif()
 
 set(DEVKITPRO $ENV{DEVKITPRO})
 
+
 function(switchvar cmakevar var default)
-	# read or set env var 
+	# read or set env var
 	if(NOT DEFINED "ENV{$var}")
 		set("ENV{$var}" default)
 	endif()
 	set("$cmakevar" "ENV{$var}")
 endfunction()
 
-# allow gcc -g to use 
+# allow gcc -g to use
 # aarch64-none-elf-addr2line -e build_switch/switch/chiaki -f -p -C -a 0xCCB5C
 set(CMAKE_BUILD_TYPE Debug)
 
@@ -45,19 +46,6 @@ switchvar(CMAKE_CPP_FLAGS CPPFLAGS "-D__SWITCH__ -I${PORTLIBS_PREFIX}/include -i
 switchvar(CMAKE_LD_FLAGS LDFLAGS "${ARCH} -L${PORTLIBS_PREFIX}/lib -L${DEVKITPRO}/libnx/lib")
 switchvar(LIBS LIBS "-lnx")
 
-
-
-# cache flags
-set( CMAKE_CXX_FLAGS           ""                        CACHE STRING "c++ flags" )
-set( CMAKE_C_FLAGS             ""                        CACHE STRING "c flags" )
-set( CMAKE_CXX_FLAGS_RELEASE   "-O3 -DNDEBUG"            CACHE STRING "c++ Release flags" )
-set( CMAKE_C_FLAGS_RELEASE     "-O3 -DNDEBUG"            CACHE STRING "c Release flags" )
-set( CMAKE_CXX_FLAGS_DEBUG     "-O0 -g -DDEBUG -D_DEBUG" CACHE STRING "c++ Debug flags" )
-set( CMAKE_C_FLAGS_DEBUG       "-O0 -g -DDEBUG -D_DEBUG" CACHE STRING "c Debug flags" )
-set( CMAKE_SHARED_LINKER_FLAGS ""                        CACHE STRING "shared linker flags" )
-set( CMAKE_MODULE_LINKER_FLAGS ""                        CACHE STRING "module linker flags" )
-set( CMAKE_EXE_LINKER_FLAGS    "-mtp=soft -fPIE -L${DEVKITPRO}/portlibs/switch/lib -L${DEVKITPRO}/libnx/lib -specs=${DEVKITPRO}/libnx/switch.specs -g"      CACHE STRING "executable linker flags" )
-
 # we require the relocation table
 set(CMAKE_C_FLAGS "-I/opt/devkitpro/libnx/include -D__SWITCH__ -march=armv8-a -mtune=cortex-a57 -mtp=soft -ffunction-sections -fdata-sections -fPIE")
 set(CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} -fno-rtti")
@@ -66,9 +54,9 @@ set(CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} -fno-rtti")
 include_directories(${DEVKITPRO}/libnx/include ${PORTLIBS_PREFIX}/include)
 
 # where is the target environment
-set(CMAKE_FIND_ROOT_PATH 
+set(CMAKE_FIND_ROOT_PATH
 	${DEVKITPRO}/devkitA64
-	${DEVKITPRO}/libnx 
+	${DEVKITPRO}/libnx
 	${DEVKITPRO}/portlibs/switch)
 
 # only search for libraries and includes in toolchain
@@ -105,8 +93,11 @@ function(add_nro_target target title author version icon romfs)
             __add_nacp(${target_we}.nacp ${title} ${author} ${version})
         endif ()
         add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${target_we}.nro
-            COMMAND ${ELF2NRO} $<TARGET_FILE:${target}> ${CMAKE_CURRENT_BINARY_DIR}/${target_we}.nro --icon=${icon} --nacp=${CMAKE_CURRENT_BINARY_DIR}/${target_we}.nacp
-			# --romfsdir=${romfs}
+            COMMAND ${ELF2NRO} $<TARGET_FILE:${target}>
+				${CMAKE_CURRENT_BINARY_DIR}/${target_we}.nro
+				--icon=${icon}
+				--nacp=${CMAKE_CURRENT_BINARY_DIR}/${target_we}.nacp
+				--romfsdir=${romfs}
             DEPENDS ${target} ${CMAKE_CURRENT_BINARY_DIR}/${target_we}.nacp
             VERBATIM
         )

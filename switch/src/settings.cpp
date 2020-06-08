@@ -19,6 +19,13 @@
 #include <chiaki/base64.h>
 #include "settings.h"
 
+/*
+// default settings
+static std::string ipaddr = "255.255.255.255";
+static ChiakiVideoResolutionPreset resolution = CHIAKI_VIDEO_RESOLUTION_PRESET_720p;
+static ChiakiVideoFPSPreset fps = CHIAKI_VIDEO_FPS_PRESET_30;
+static int overclock = 1326000000;
+*/
 
 Settings::ConfigurationItem Settings::ParseLine(std::string *line, std::string *value){
 	Settings::ConfigurationItem ci;
@@ -132,6 +139,7 @@ void Settings::ParseFile(){
 					} else if (value.compare("360p") == 0) {
 						current_host->video_resolution = CHIAKI_VIDEO_RESOLUTION_PRESET_360p;
 					}
+					current_host->video_resolution = CHIAKI_VIDEO_RESOLUTION_PRESET_720p;
 					break;
 				case VIDEO_FPS:
 					if (value.compare("60") == 0) {

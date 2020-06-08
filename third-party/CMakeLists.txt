@@ -52,6 +52,7 @@ if(CHIAKI_ENABLE_SWITCH AND NOT CHIAKI_SWITCH_ENABLE_LINUX)
 			Plutonium/Plutonium/Source/pu/audio/audio_Music.cpp
 			Plutonium/Plutonium/Source/pu/audio/audio_Sfx.cpp
 			Plutonium/Plutonium/Source/pu/pu_String.cpp
+			Plutonium/Plutonium/Source/pu/sdl2/ttf_SDL_ttf.c
 			Plutonium/Plutonium/Source/pu/ttf/ttf_Font.cpp
 			Plutonium/Plutonium/Source/pu/ui/render/render_SDL2.cpp
 			Plutonium/Plutonium/Source/pu/ui/render/render_Renderer.cpp
@@ -72,6 +73,9 @@ if(CHIAKI_ENABLE_SWITCH AND NOT CHIAKI_SWITCH_ENABLE_LINUX)
 			Plutonium/Plutonium/Source/pu/ui/ui_Application.cpp)
 	add_library(plutonium STATIC ${PLUTONIUM_SOURCE})
 	target_include_directories(plutonium PUBLIC Plutonium/Plutonium/Include)
+	# fix Plutonium/Source/pu/sdl2/ttf_SDL_ttf.c:27:10: fatal error: ft2build.h: No such file or directory
+	target_include_directories(plutonium PUBLIC $ENV{PORTLIBS_PREFIX}/include/freetype2)
+	target_include_directories(plutonium PUBLIC $ENV{PORTLIBS_PREFIX}/include/)
 	# /opt/devkitpro/portlibs/switch/bin/sdl2-config --libs
 	# -L/opt/devkitpro/portlibs/switch/lib -lSDL2 -march=armv8-a -fPIE -L/opt/devkitpro/libnx/lib -lEGL -lglapi -ldrm_nouveau -lnx
 	# /opt/devkitpro/portlibs/switch/bin/freetype-config --libs

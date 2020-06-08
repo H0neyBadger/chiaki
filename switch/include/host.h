@@ -48,9 +48,7 @@ class Host
 		// info from discovery manager
 		int system_version;
 		int device_discovery_protocol_version;
-		std::string host_name;
 		std::string host_type;
-		std::string host_id;
 		// user info
 		std::string psn_online_id;
 		std::string psn_account_id;
@@ -79,6 +77,8 @@ class Host
 		bool registered = false;
 		// rp_key_data is true when rp_key, rp_regist_key, rp_key_type
 		bool rp_key_data = false;
+		std::string host_name;
+		std::string host_id;
 		std::string host_addr;
 		// share picture frame
 		// with main function

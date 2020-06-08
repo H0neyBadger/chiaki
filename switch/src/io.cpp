@@ -81,14 +81,14 @@ IO::IO(ChiakiLog * log):
 #ifndef CHIAKI_SWITCH_ENABLE_OPENGL
 	codec(nullptr),
 	texture(nullptr),
-	renderer(nullptr),
 	pict(nullptr),
 	sws_context(nullptr),
 #endif
 	resize(true),
 	log(log),
 	codec_context(nullptr),
-	sdl_window(nullptr)
+	sdl_window(nullptr),
+	renderer(nullptr)
 {
 	//TODO
 }
@@ -301,12 +301,12 @@ bool IO::FreeVideo(){
 		ret &= FreeSDLWindow();
 	}
 
+	SDL_DestroyRenderer(this->renderer);
 #ifndef CHIAKI_SWITCH_ENABLE_OPENGL
 	//codec(nullptr),
 	if(this->pict){
 		av_frame_free(&this->pict);
 	}
-	SDL_DestroyRenderer(this->renderer);
 	SDL_DestroyWindow(this->sdl_window);
 #endif
 	return ret;
@@ -464,12 +464,14 @@ bool IO::InitSDLWindow(){
 		return false;
 	}
 
-	this->sdl_window = SDL_CreateWindow("Chiaki Stream",
-		SDL_WINDOWPOS_CENTERED,
-		SDL_WINDOWPOS_CENTERED,
-		this->screen_width,
-		this->screen_height,
-		SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
+	if(!this->sdl_window){
+		this->sdl_window = SDL_CreateWindow("Chiaki Stream",
+			SDL_WINDOWPOS_CENTERED,
+			SDL_WINDOWPOS_CENTERED,
+			this->screen_width,
+			this->screen_height,
+			SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
+	}
 
 	if (!this->sdl_window) {
 		CHIAKI_LOGE(this->log, "SDL_CreateWindow failed: %s", SDL_GetError());
@@ -683,6 +685,14 @@ inline void IO::SetOpenGlYUVPixels(AVFrame * frame){
 	}
 	glFinish();
 	SDL_GL_MakeCurrent(this->sdl_window, NULL);
+
+	if(!this->renderer){
+		this->renderer = SDL_CreateRenderer(this->sdl_window, -1, SDL_RENDERER_ACCELERATED);
+		if (!renderer) {
+			CHIAKI_LOGE(this->log, "SDL_CreateRenderer failed: %s", SDL_GetError());
+			return false;
+		}
+	}
 }
 
 inline void IO::OpenGlDraw() {
@@ -699,14 +709,17 @@ inline void IO::OpenGlDraw() {
 #else
 
 bool IO::InitSDLTextures() {
-	this->renderer = SDL_CreateRenderer(this->sdl_window, -1, SDL_RENDERER_ACCELERATED);
-	if (!renderer) {
-		CHIAKI_LOGE(this->log, "SDL_CreateRenderer failed: %s", SDL_GetError());
-		return false;
+	// https://github.com/raullalves/player-cpp-ffmpeg-sdl/blob/master/Player.cpp
+	printf("renderer %p\n", this->renderer);
+	if(!this->renderer){
+		this->renderer = SDL_CreateRenderer(this->sdl_window, -1, SDL_RENDERER_ACCELERATED);
+		if (!this->renderer) {
+			CHIAKI_LOGE(this->log, "SDL_CreateRenderer failed: %s", SDL_GetError());
+			return false;
+		}
 	}
 
-	// https://github.com/raullalves/player-cpp-ffmpeg-sdl/blob/master/Player.cpp
-	this->texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_YV12,
+	this->texture = SDL_CreateTexture(this->renderer, SDL_PIXELFORMAT_YV12,
 		SDL_TEXTUREACCESS_STREAMING, this->screen_width, this->screen_height);
 
 	if(!this->texture){

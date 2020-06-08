@@ -18,6 +18,7 @@ add_executable(chiaki WIN32
 	src/io.cpp
 	src/host.cpp
 	src/main.cpp
+	src/gui.cpp
 )
 
 target_include_directories(chiaki PRIVATE include)
@@ -43,7 +44,8 @@ if(CHIAKI_SWITCH_ENABLE_LINUX)
 	target_link_libraries(chiaki dl)
 else()
 	# use libnx last
-	target_link_libraries(chiaki plutonium glapi drm_nouveau nx m)
+	target_link_libraries(chiaki plutonium SDL2_ttf freetype bz2 glapi drm_nouveau nx m)
+
 endif()
 
 install(TARGETS chiaki
@@ -51,5 +53,5 @@ install(TARGETS chiaki
 	BUNDLE DESTINATION bin)
 
 if(CHIAKI_ENABLE_SWITCH AND NOT CHIAKI_SWITCH_ENABLE_LINUX)
-	add_nro_target(chiaki "chiaki" "Chiaki team" "${CHIAKI_VERSION}" "${CMAKE_SOURCE_DIR}/switch/res/icon.jpg" "${CMAKE_SOURCE_DIR}")
+	add_nro_target(chiaki "chiaki" "Chiaki team" "${CHIAKI_VERSION}" "${CMAKE_SOURCE_DIR}/switch/res/icon.jpg" "${CMAKE_SOURCE_DIR}/switch/res")
 endif()

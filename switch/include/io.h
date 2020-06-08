@@ -117,6 +117,8 @@ class IO {
 		IO(ChiakiLog * log);
 		~IO();
 		bool VideoCB(uint8_t * buf, size_t buf_size);
+		void SetSDLRenderer(SDL_Renderer * renderer){ this->renderer = renderer; };
+		void SetSDLWindow(SDL_Window * sdl_window){ this->sdl_window = sdl_window; };
 		void InitAudioCB(unsigned int channels, unsigned int rate);
 		void AudioCB(int16_t * buf, size_t samples_count);
 		bool InitVideo(int video_width, int video_height, int screen_width, int screen_height);
