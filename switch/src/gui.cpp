@@ -15,7 +15,6 @@
  * along with Chiaki.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include <chiaki/discovery.h>
 
 #include "gui.h"
 
@@ -98,11 +97,13 @@ AddLayout::AddLayout(): pu::ui::Layout::Layout() {
 }
 
 MainLayout::MainLayout(std::map<std::string, Host> * hosts,
+	std::function<void(Host *)> DiscoverySendFn,
 	std::function<void(Host *)> SetHostFn,
 	std::function<void(Host *)> WakeupHostFn,
 	std::function<void(Host *)> ConfigureHostFn):
 		pu::ui::Layout::Layout(),
 		hosts(hosts),
+		DiscoverySendFn(DiscoverySendFn),
 		SetHostFn(SetHostFn),
 		WakeupHostFn(WakeupHostFn),
 		ConfigureHostFn(ConfigureHostFn){
@@ -175,17 +176,27 @@ bool MainLayout::UpdateOrCreateHostMenuItem(Host * host){
 }
 
 void MainLayout::UpdateValues() {
-	for(auto it = this->hosts->begin(); it != this->hosts->end(); it++){
-		this->UpdateOrCreateHostMenuItem(&it->second);
+	// do not run every time
+	this->thread_counter++;
+	this->thread_counter%=60;
+	if(this->thread_counter == 0){
+		// send broadcast discovery
+		this->DiscoverySendFn(nullptr);
+		for(auto it = this->hosts->begin(); it != this->hosts->end(); it++){
+			// send broadcast discovery
+			this->DiscoverySendFn(&it->second);
+			this->UpdateOrCreateHostMenuItem(&it->second);
+		}
 	}
 }
 
 
 void MainApplication::OnLoad() {
+	std::function<void(Host *)> discoverysend_cb = std::bind(&MainApplication::DiscoverySendCallback, this, std::placeholders::_1);
 	std::function<void(Host *)> host_cb = std::bind(&MainApplication::SetHostCallback, this, std::placeholders::_1);
 	std::function<void(Host *)> host_wakeup_cb = std::bind(&MainApplication::WakeupHostCallback, this, std::placeholders::_1);
 	std::function<void(Host *)> host_setting_cb = std::bind(&MainApplication::ConfigureHostCallback, this, std::placeholders::_1);
-	this->main_layout = MainLayout::New(this->hosts, host_cb, host_wakeup_cb, host_setting_cb);
+	this->main_layout = MainLayout::New(this->hosts, discoverysend_cb, host_cb, host_wakeup_cb, host_setting_cb);
 	this->main_layout->add_button->SetOnClick(std::bind(&MainApplication::LoadAddLayout, this));
 	this->main_layout->setting_button->SetOnClick(std::bind(&MainApplication::LoadSettingLayout, this));
 	this->LoadLayout(this->main_layout);
@@ -246,19 +257,37 @@ void MainApplication::SetHostCallback(Host * host) {
 			}
 		}
 	}
-	if(!host->rp_key_data) {
+	if(host->rp_key_data) {
 		host->ConnectSession(this->io);
 		this->Close();
 	}
 }
 
 void MainApplication::WakeupHostCallback(Host * host) {
-	host->Wakeup();
-	this->CreateShowDialog("Wakeup", "PS4 Wakeup packet sent", { "OK" }, true);
+	if(!host->rp_key_data) {
+		// the host is not registered yet
+		this->CreateShowDialog("Wakeup", "Please register your PS4 first", { "OK" }, true);
+	} else {
+		int r = host->Wakeup();
+		if(r == 0){
+			this->CreateShowDialog("Wakeup", "PS4 Wakeup packet sent", { "OK" }, true);
+		} else {
+			this->CreateShowDialog("Wakeup", "PS4 Wakeup packet Failed", { "OK" }, true);
+		}
+	}
 }
 
 void MainApplication::ConfigureHostCallback(Host * host) {
 	int ret = this->CreateShowDialog("Settings", "TODO", { "OK" }, true);
+}
+
+void MainApplication::DiscoverySendCallback(Host * host) {
+	if(host){
+		this->discoverymanager->Send(host->host_addr.c_str());
+	} else {
+		// broadcast send discovery
+		this->discoverymanager->Send();
+	}
 }
 
 Host * MainApplication::GetHost() {

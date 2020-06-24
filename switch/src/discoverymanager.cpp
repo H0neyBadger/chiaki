@@ -32,46 +32,50 @@ static void Discovery(ChiakiDiscoveryHost *discovered_host, void *user){
 	dm->DiscoveryCB(discovered_host);
 }
 
-int DiscoveryManager::Discover(struct sockaddr *host_addr, size_t host_addr_len){
+
+DiscoveryManager::DiscoveryManager(ChiakiLog* log, std::map<std::string, Host> *hosts):
+	        log(log),
+            hosts(hosts),
+            host_addr(nullptr),
+            host_addr_len(0){
+
+	ChiakiErrorCode err = chiaki_discovery_init(&this->discovery, this->log, AF_INET);
+	if(err != CHIAKI_ERR_SUCCESS)
+	{
+		CHIAKI_LOGE(log, "Discovery init failed");
+	}
+
+	err = chiaki_discovery_thread_start(&this->thread, &this->discovery, Discovery, this);
+	if(err != CHIAKI_ERR_SUCCESS)
+	{
+		CHIAKI_LOGE(log, "Discovery thread init failed");
+		chiaki_discovery_fini(&discovery);
+	}
+}
+
+DiscoveryManager::~DiscoveryManager(){
+	// join discovery thread
+	chiaki_discovery_thread_stop(&this->thread);
+	chiaki_discovery_fini(&this->discovery);
+}
+
+int DiscoveryManager::Send(struct sockaddr *host_addr, size_t host_addr_len){
 	if(!host_addr)
 	{
 		CHIAKI_LOGE(log, "Null sockaddr");
 		return 1;
 	}
-
-	ChiakiDiscovery discovery;
-	ChiakiErrorCode err = chiaki_discovery_init(&discovery, log, AF_INET);
-	if(err != CHIAKI_ERR_SUCCESS)
-	{
-		CHIAKI_LOGE(log, "Discovery init failed");
-		return 1;
-	}
-
-	ChiakiDiscoveryThread thread;
-	err = chiaki_discovery_thread_start(&thread, &discovery, Discovery, this);
-	if(err != CHIAKI_ERR_SUCCESS)
-	{
-		CHIAKI_LOGE(log, "Discovery thread init failed");
-		chiaki_discovery_fini(&discovery);
-		return 1;
-	}
-
 	((struct sockaddr_in *)host_addr)->sin_port = htons(CHIAKI_DISCOVERY_PORT);
 
 	ChiakiDiscoveryPacket packet;
 	memset(&packet, 0, sizeof(packet));
 	packet.cmd = CHIAKI_DISCOVERY_CMD_SRCH;
 
-	chiaki_discovery_send(&discovery, &packet, this->host_addr, this->host_addr_len);
-	//FIXME
-	sleep(1);
-	// join discovery thread
-	chiaki_discovery_thread_stop(&thread);
-	chiaki_discovery_fini(&discovery);
+	chiaki_discovery_send(&this->discovery, &packet, this->host_addr, this->host_addr_len);
 	return 0;
 }
 
-int DiscoveryManager::Discover(const char *discover_ip_dest){
+int DiscoveryManager::Send(const char *discover_ip_dest){
 	struct addrinfo *host_addrinfos;
 	int r = getaddrinfo(discover_ip_dest, NULL, NULL, &host_addrinfos);
 	if(r != 0)
@@ -101,10 +105,10 @@ int DiscoveryManager::Discover(const char *discover_ip_dest){
 		CHIAKI_LOGE(log, "Failed to get addr for hostname");
 		return 1;
 	}
-	return DiscoveryManager::Discover(this->host_addr, this->host_addr_len);
+	return DiscoveryManager::Send(this->host_addr, this->host_addr_len);
 }
 
-int DiscoveryManager::Discover(){
+int DiscoveryManager::Send(){
 #ifdef __SWITCH__
 	uint32_t current_addr, subnet_mask;
 	// init nintendo net interface service
@@ -120,7 +124,6 @@ int DiscoveryManager::Discover(){
 		return 1;
 	}
 
-
 	struct sockaddr_in addr;
 	addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = current_addr | (~subnet_mask);
@@ -130,13 +133,14 @@ int DiscoveryManager::Discover(){
 	this->host_addr = (struct sockaddr *)malloc(host_addr_len);
 	memcpy(this->host_addr, &addr, this->host_addr_len);
 
-	CHIAKI_LOGI(log, "Read current addr `%p` mask `%p` broadcast `%p`\n", 
+	CHIAKI_LOGI(log, "Read current addr `%p` mask `%p` broadcast `%p`\n",
 		ntohl(current_addr), ntohl(subnet_mask), ntohl(current_addr | (~subnet_mask)));
-	return DiscoveryManager::Discover(this->host_addr, this->host_addr_len);
+	return DiscoveryManager::Send(this->host_addr, this->host_addr_len);
 #else
-	return DiscoveryManager::Discover("255.255.255.255");
+	return DiscoveryManager::Send("255.255.255.255");
 #endif
 }
+
 Host* DiscoveryManager::GetHost(std::string ps4_nickname){
 	auto it = hosts->find(ps4_nickname);
 	if (it != hosts->end()){

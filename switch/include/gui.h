@@ -24,6 +24,7 @@
 
 #include <map>
 #include "host.h"
+#include "discoverymanager.h"
 #include "io.h"
 
 // https://github.com/XorTroll/Goldleaf/blob/0.9-dev/Goldleaf/Source/ui/ui_ClickableImage.cpp
@@ -62,6 +63,7 @@ class MainLayout : public pu::ui::Layout {
 		pu::ui::elm::Menu::Ref console_menu;
 		pu::ui::elm::TextBlock::Ref no_host_found;
 		std::map<std::string, Host> * hosts;
+		std::function<void(Host *)> DiscoverySendFn;
 		std::function<void(Host *)> SetHostFn;
 		std::function<void(Host *)> WakeupHostFn;
 		std::function<void(Host *)> ConfigureHostFn;
@@ -69,8 +71,10 @@ class MainLayout : public pu::ui::Layout {
 		std::map<std::string, pu::ui::elm::MenuItem::Ref> host_menuitems;
 		void UpdateValues();
 		bool UpdateOrCreateHostMenuItem(Host * host);
+		int thread_counter = 0;
 	public:
 		MainLayout(std::map<std::string, Host> * hosts,
+			std::function<void(Host *)> DiscoverySendFn,
 			std::function<void(Host *)> SetHostFn,
 			std::function<void(Host *)> WakeupHostFn,
 			std::function<void(Host *)> ConfigureHostFn);
@@ -87,6 +91,7 @@ class MainApplication : public pu::ui::Application {
 		SettingLayout::Ref setting_layout;
 		AddLayout::Ref add_layout;
 		std::map<std::string, Host> * hosts;
+		DiscoveryManager * discoverymanager;
 		Host * host;
 		IO * io;
 		void LoadSettingLayout();
@@ -97,13 +102,14 @@ class MainApplication : public pu::ui::Application {
 	public:
 		//using Application::Application;
 		//MainApplication();
-		MainApplication(pu::ui::render::Renderer::Ref Renderer, std::map<std::string, Host> * hosts, IO * io):
-			pu::ui::Application(Renderer), hosts(hosts), host(nullptr), io(io) {};
+		MainApplication(pu::ui::render::Renderer::Ref Renderer, std::map<std::string, Host> * hosts, DiscoveryManager * discoverymanager, IO * io):
+			pu::ui::Application(Renderer), hosts(hosts), discoverymanager(discoverymanager), host(nullptr), io(io) {};
 		PU_SMART_CTOR(MainApplication)
 		Host * GetHost();
 		void SetHostCallback(Host * host);
 		void WakeupHostCallback(Host * host);
 		void ConfigureHostCallback(Host * host);
+		void DiscoverySendCallback(Host * host);
 		void OnLoad() override;
 };
 

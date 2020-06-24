@@ -143,7 +143,6 @@ int main(int argc, char* argv[]){
 	IO io = IO(&log); // open Input Output class
 	// set video size to 0
 
-
 	// manage ps4 setting discovery wakeup and registration
 	std::map<std::string, Host> hosts;
 	// create host objects form config file
@@ -151,39 +150,74 @@ int main(int argc, char* argv[]){
 	CHIAKI_LOGI(&log, "Read chiaki settings file");
 	// FIXME use GUI for config
 	settings.ParseFile();
-	DiscoveryManager discoverymanager = DiscoveryManager(&log, &hosts);
-	CHIAKI_LOGI(&log, "Call Discover");
-	//int d = discoverymanager.Discover("255.255.255.255");
-	//int d = discoverymanager.Discover("192.168.0.255");
-	int d = discoverymanager.Discover();
+	Host * host = nullptr;
+	// create sub context to destroy discoverymanager
+	{
+		DiscoveryManager discoverymanager = DiscoveryManager(&log, &hosts);
+		CHIAKI_LOGI(&log, "Call Discover");
+		int d = discoverymanager.Send();
 #ifdef __SWITCH__
-	// load Plutonium GUI
-	auto plutonium_renderer_options = pu::ui::render::RendererInitOptions(SDL_INIT_EVERYTHING,
-		pu::ui::render::RendererHardwareFlags).WithIMG(pu::ui::render::IMGAllFlags).WithMixer(pu::ui::render::MixerAllFlags).WithTTF();
-	auto plutonium_renderer = pu::ui::render::Renderer::New(plutonium_renderer_options);
-	auto plutonium_app = MainApplication::New(plutonium_renderer, &hosts, &io);
-    plutonium_app->Prepare();
-    plutonium_app->Show();
-	// retrieve ps4 gui host ptr
-	Host * host = plutonium_app->GetHost();
-	/*
-	io.SetSDLWindow(pu::ui::render::GetMainWindow());
-	io.SetSDLRenderer(pu::ui::render::GetMainRenderer());
-	*/
-	printf("bye");
-	return 0;
+		// load Plutonium GUI
+		auto plutonium_renderer_options = pu::ui::render::RendererInitOptions(SDL_INIT_EVERYTHING,
+			pu::ui::render::RendererHardwareFlags).WithIMG(pu::ui::render::IMGAllFlags).WithMixer(pu::ui::render::MixerAllFlags).WithTTF();
+		auto plutonium_renderer = pu::ui::render::Renderer::New(plutonium_renderer_options);
+		auto plutonium_app = MainApplication::New(plutonium_renderer, &hosts, &discoverymanager, &io);
+	    plutonium_app->Prepare();
+	    plutonium_app->Show();
+		// retrieve ps4 gui host ptr
+		host = plutonium_app->GetHost();
+		/*
+		io.SetSDLWindow(pu::ui::render::GetMainWindow());
+		io.SetSDLRenderer(pu::ui::render::GetMainRenderer());
+		*/
+		printf("bye");
+		return 0;
 #else
-	size_t host_count = hosts.size();
-	if(host_count != 1){
-		// FIXME
-		CHIAKI_LOGE(&log, "too many or to too few host to connect");
-		return 1;
-	}
-	// pick the first host of the map
-	Host * host = &hosts.begin()->second;
-	// int c = discoverymanager.ParseSettings();
-	CHIAKI_LOGI(&log, "Open %s host", host->host_addr.c_str());
+		// wait for discoverymanager
+		sleep(1);
+		size_t host_count = hosts.size();
+		if(host_count != 1){
+			// FIXME
+			CHIAKI_LOGE(&log, "too many or to too few host to connect");
+			return 1;
+		}
+		// pick the first host of the map
+		host = &hosts.begin()->second;
+		// int c = discoverymanager.ParseSettings();
+		CHIAKI_LOGI(&log, "Open %s host", host->host_addr.c_str());
+		int count = 0;
+		while(host->state != CHIAKI_DISCOVERY_HOST_STATE_READY && host->rp_key_data && count < 10){
+			CHIAKI_LOGI(&log, "Send Wakeup packet count:%d", count);
+			host->Wakeup();
+			//refresh state (and wait)
+			sleep(2);
+			discoverymanager.Send(host->host_addr.c_str());
+		}
+
+		if(!host->rp_key_data) {
+			CHIAKI_LOGI(&log, "Call register");
+			char pin_input[9];
+			io.ReadUserKeyboard(pin_input, sizeof(pin_input));
+			std::string pin = pin_input;
+			host->Register(pin);
+			sleep(2);
+			if(host->rp_key_data && host->registered)
+				settings.WriteFile();
+		}
+
+		CHIAKI_LOGI(&log, "Connect Session");
+		host->ConnectSession(&io);
+		sleep(2);
+
+		// run stream session thread
+		CHIAKI_LOGI(&log, "Start Session");
+		host->StartSession();
+		sleep(1);
+
 #endif
+		// destroy discoverymanager
+	}
+
 	if(!io.InitVideo(0, 0, SCREEN_W, SCREEN_H)){
 		CHIAKI_LOGE(&log, "Failed to initiate Video");
 		return 1;
@@ -199,39 +233,10 @@ int main(int argc, char* argv[]){
 		return 1;
 	}
 
-	int count = 0;
-	while(host->state != CHIAKI_DISCOVERY_HOST_STATE_READY && host->rp_key_data && count < 10){
-		CHIAKI_LOGI(&log, "Send Wakeup packet count:%d", count);
-		host->Wakeup();
-		//refresh state (and wait)
-		sleep(2);
-		discoverymanager.Discover(host->host_addr.c_str());
-	}
-
 	if(host <= 0){
 		CHIAKI_LOGE(&log, "Host %s not found", host->host_addr.c_str());
 		return 1;
 	}
-
-	if(!host->rp_key_data) {
-		CHIAKI_LOGI(&log, "Call register");
-		char pin_input[9];
-		io.ReadUserKeyboard(pin_input, sizeof(pin_input));
-		std::string pin = pin_input;
-		host->Register(pin);
-		sleep(2);
-		if(host->rp_key_data && host->registered)
-			settings.WriteFile();
-	}
-
-	CHIAKI_LOGI(&log, "Connect Session");
-	host->ConnectSession(&io);
-	sleep(2);
-
-	// run stream session thread
-	CHIAKI_LOGI(&log, "Start Session");
-	host->StartSession();
-	sleep(1);
 
 	CHIAKI_LOGI(&log, "Load sdl joysticks");
 	if(!io.InitJoystick()){
