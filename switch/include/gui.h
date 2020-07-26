@@ -26,36 +26,26 @@
 #include "host.h"
 #include "discoverymanager.h"
 #include "io.h"
-
-// https://github.com/XorTroll/Goldleaf/blob/0.9-dev/Goldleaf/Source/ui/ui_ClickableImage.cpp
-class ClickableImage : public pu::ui::elm::Image
-{
-	public:
-		// Have ::Ref alias and ::New() static constructor
-		PU_SMART_CTOR(ClickableImage)
-
-		ClickableImage(s32 X, s32 Y, pu::String Image);
-		void SetOnClick(std::function<void()> Callback);
-		void OnInput(u64 down, u64 up, u64 held, pu::ui::Touch Pos);
-	protected:
-		//pu::sdl2::Texture ntex;
-		std::function<void()> cb;
-		std::chrono::steady_clock::time_point touchtp;
-		bool touched;
-};
+#include "ui/clickableimage.h"
+#include "ui/customdialog.h"
 
 class SettingLayout : public pu::ui::Layout::Layout {
+	private:
+		pu::ui::elm::Menu::Ref setting_menu;
+		pu::ui::elm::Menu::Ref resolution_menu;
+		pu::ui::elm::Menu::Ref fps_menu;
+		pu::ui::elm::Menu::Ref overclock_menu;
 	public:
 		SettingLayout();
 		PU_SMART_CTOR(SettingLayout)
-		ClickableImage::Ref button;
+		chiaki::ui::ClickableImage::Ref button;
 };
 
 class AddLayout : public pu::ui::Layout::Layout {
 	public:
 		AddLayout();
 		PU_SMART_CTOR(AddLayout)
-		ClickableImage::Ref button;
+		chiaki::ui::ClickableImage::Ref button;
 };
 
 class MainLayout : public pu::ui::Layout {
@@ -80,9 +70,9 @@ class MainLayout : public pu::ui::Layout {
 			std::function<void(Host *)> ConfigureHostFn);
 		// Have ::Ref alias and ::New() static constructor
 		PU_SMART_CTOR(MainLayout)
-		ClickableImage::Ref discover_button;
-		ClickableImage::Ref add_button;
-		ClickableImage::Ref setting_button;
+		chiaki::ui::ClickableImage::Ref discover_button;
+		chiaki::ui::ClickableImage::Ref add_button;
+		chiaki::ui::ClickableImage::Ref setting_button;
 };
 
 class MainApplication : public pu::ui::Application {

@@ -18,57 +18,19 @@
 
 #include "gui.h"
 
-//https://github.com/XorTroll/Goldleaf/blob/0.9-dev/Goldleaf/Source/ui/ui_ClickableImage.cpp
-ClickableImage::ClickableImage(s32 X, s32 Y, pu::String Image) : pu::ui::elm::Image::Image(X, Y, Image) {
-	this->cb = [&](){};
-	this->touched = false;
-}
-
-void ClickableImage::SetOnClick(std::function<void()> Callback)
-{
-	this->cb = Callback;
-}
-
-void ClickableImage::OnInput(u64 down, u64 up, u64 held, pu::ui::Touch Pos)
-{
-	if(touched)
-	{
-		auto tpnow = std::chrono::steady_clock::now();
-		auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(tpnow - touchtp).count();
-		if(diff >= 200)
-		{
-			touched = false;
-			(this->cb)();
-		}
-	}
-	else if(!Pos.IsEmpty())
-	{
-		touchPosition tch;
-		hidTouchRead(&tch, 0);
-		int w = this->GetWidth();
-		int h = this->GetHeight();
-		if((Pos.X >= this->GetProcessedX()) && (Pos.X < (this->GetProcessedX() + w))
-			&& (Pos.Y >= this->GetProcessedY()) && (Pos.Y < (this->GetProcessedY() + h)))
-		{
-			touchtp = std::chrono::steady_clock::now();
-			touched = true;
-		}
-	}
-}
-
 SettingLayout::SettingLayout(): pu::ui::Layout::Layout() {
-	/*
-	this->menu = pu::ui::elm::Menu::New(0,100,1280,
-		pu::ui::Color(0,0,0,0), 200, (620 / 200));
 
-	pu::ui::elm::MenuItem::Ref host_item = pu::ui::elm::MenuItem::New(text);
-	host_item->SetColor(pu::ui::Color(0,0,0,0));
-	*/
-	this->button = ClickableImage::New(300, 300, "romfs:/discover-24px.svg");
+	this->setting_menu = pu::ui::elm::Menu::New(0,100,1280,
+		pu::ui::Color(100,100,100,100), 200, (620 / 200));
+
+	//pu::ui::elm::MenuItem::Ref overclock = pu::ui::elm::MenuItem::New(text);
+	//overclock->SetColor(pu::ui::Color(0,0,0,0));
+
+	this->button = chiaki::ui::ClickableImage::New(300, 300, "romfs:/discover-24px.svg");
 	this->button->SetWidth(40);
 	this->button->SetHeight(40);
 	//this->button->SetOnClick();
-	this->Add(this->button);
+	this->Add(this->setting_menu);
 }
 
 /*
@@ -79,7 +41,7 @@ SettingLayout::Update() {
 	this->settings->GetResolutionString(&resolution_str);
 	this->resolution = pu::ui::elm::MenuItem::New("resolution: " + resolution_str);
 
-	this->button = ClickableImage::New(300, 300, "romfs:/discover-24px.svg");
+	this->button = chiaki::ui::ClickableImage::New(300, 300, "romfs:/discover-24px.svg");
 	this->button->SetWidth(40);
 	this->button->SetHeight(40);
 	//this->button->SetOnClick();
@@ -89,7 +51,7 @@ SettingLayout::Update() {
 
 AddLayout::AddLayout(): pu::ui::Layout::Layout() {
 
-	this->button = ClickableImage::New(300, 300, "romfs:/discover-24px.svg");
+	this->button = chiaki::ui::ClickableImage::New(300, 300, "romfs:/discover-24px.svg");
 	this->button->SetWidth(40);
 	this->button->SetHeight(40);
 	//this->button->SetOnClick(test);
@@ -116,20 +78,20 @@ MainLayout::MainLayout(std::map<std::string, Host> * hosts,
 	this->ConfigureHostFn = ConfigureHostFn;
 	*/
 
-	this->discover_button = ClickableImage::New(30, 30, "romfs:/discover-24px.svg");
+	this->discover_button = chiaki::ui::ClickableImage::New(30, 30, "romfs:/discover-24px.svg");
 	this->discover_button->SetWidth(40);
 	this->discover_button->SetHeight(40);
 	//this->discover_button->SetOnClick();
 	this->Add(this->discover_button);
 
 	// upper right
-	this->add_button = ClickableImage::New(1160, 30, "romfs:/add-24px.svg");
+	this->add_button = chiaki::ui::ClickableImage::New(1160, 30, "romfs:/add-24px.svg");
 	this->add_button->SetWidth(40);
 	this->add_button->SetHeight(40);
 	this->Add(this->add_button);
 	// upper right
 
-	this->setting_button = ClickableImage::New(1220, 30, "romfs:/settings-20px.svg");
+	this->setting_button = chiaki::ui::ClickableImage::New(1220, 30, "romfs:/settings-20px.svg");
 	this->setting_button->SetWidth(40);
 	this->setting_button->SetHeight(40);
 	this->Add(this->setting_button);

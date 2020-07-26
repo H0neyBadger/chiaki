@@ -13,6 +13,8 @@ endif()
 # find -type f | grep -P '\.(h|cpp)$' | sed 's#\./#\t\t#g'
 add_executable(chiaki WIN32
 	${RESOURCE_FILES}
+	src/ui/customdialog.cpp
+	src/ui/clickableimage.cpp
 	src/discoverymanager.cpp
 	src/settings.cpp
 	src/io.cpp
