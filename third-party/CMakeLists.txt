@@ -72,34 +72,53 @@ if(CHIAKI_ENABLE_SWITCH AND NOT CHIAKI_SWITCH_ENABLE_LINUX)
 			Plutonium/Plutonium/Source/pu/ui/ui_Container.cpp
 			Plutonium/Plutonium/Source/pu/ui/ui_Application.cpp)
 	add_library(plutonium STATIC ${PLUTONIUM_SOURCE})
+	# workaroud to include ft2build.h
+	target_include_directories(plutonium PRIVATE ${PORTLIBS_PREFIX}/include/freetype2)
 	target_include_directories(plutonium PUBLIC Plutonium/Plutonium/Include)
-	# fix Plutonium/Source/pu/sdl2/ttf_SDL_ttf.c:27:10: fatal error: ft2build.h: No such file or directory
-	target_include_directories(plutonium PUBLIC $ENV{PORTLIBS_PREFIX}/include/freetype2)
-	target_include_directories(plutonium PUBLIC $ENV{PORTLIBS_PREFIX}/include/)
-	# /opt/devkitpro/portlibs/switch/bin/sdl2-config --libs
-	# -L/opt/devkitpro/portlibs/switch/lib -lSDL2 -march=armv8-a -fPIE -L/opt/devkitpro/libnx/lib -lEGL -lglapi -ldrm_nouveau -lnx
-	# /opt/devkitpro/portlibs/switch/bin/freetype-config --libs
-	# -L/opt/devkitpro/portlibs/switch/lib -lfreetype -lbz2 -L/opt/devkitpro/portlibs/switch/lib -L/opt/devkitpro/portlibs/switch/lib -lz -lpng16 -lm -lnx -lz
+
+	find_library(FREETYPE freetype)
+	find_library(BZ2 bz2)
+	find_library(Z z)
+	# find_package(sdl2 CONFIG REQUIRED)
+	find_library(SDL2_MIXER SDL2_mixer)
+	find_library(OPUSFILE opusfile)
+	find_library(OPUS opus)
+	find_library(MODPLUG modplug)
+	find_library(MPG123 mpg123)
+	find_library(VORBISIDEC vorbisidec)
+	find_library(OGG ogg)
+	find_library(SDL2_TTF SDL2_ttf)
+	find_library(SDL2_GFX SDL2_gfx)
+	find_library(SDL2_IMAGE SDL2_image)
+	find_library(SDL2 SDL2)
+	find_library(EGL EGL)
+	find_library(GLESV2 GLESv2)
+	find_library(GLAPI glapi)
+	find_library(DRM_NOUVEAU drm_nouveau)
+	find_library(WEBP webp)
+	find_library(PNG png)
+	find_library(JPEG jpeg)
 	target_link_libraries(plutonium
-			freetype
-			SDL2_mixer
-			opusfile
-			opus
-			modplug
-			mpg123
-			vorbisidec
-			ogg
-			SDL2_ttf
-			SDL2_gfx
-			SDL2_image
-			SDL2
-			EGL
-			GLESv2
-			glapi
-			drm_nouveau
-			webp
-			png
-			jpeg
-			nx)
+		${FREETYPE}
+		${BZ}
+		${Z}
+		${SDL2_MIXER}
+		${OPUSFILE}
+		${OPUS}
+		${MODPLUG}
+		${MPG123}
+		${VORBISIDEC}
+		${OGG}
+		${SDL2_TTF}
+		${SDL2_GFX}
+		${SDL2_IMAGE}
+		${SDL2}
+		${EGL}
+		${GLESV2}
+		${GLAPI}
+		${DRM_NOUVEAU}
+		${WEBP}
+		${PNG}
+		${JPEG})
 endif()
 
