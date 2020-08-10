@@ -31,12 +31,45 @@
 
 class SettingLayout : public pu::ui::Layout::Layout {
 	private:
+		// display custom dialog from main app
+		std::function<void(chiaki::ui::CustomDialog::Ref)> show_custom_dialog_cb;
+		// default color schemes
+		pu::ui::Color menu_color;
+		pu::ui::Color menu_focus_color;
 		pu::ui::elm::Menu::Ref setting_menu;
+		pu::ui::elm::MenuItem::Ref account_item;
+		pu::ui::elm::MenuItem::Ref resolution_item;
+		pu::ui::elm::MenuItem::Ref fps_item;
+		pu::ui::elm::MenuItem::Ref overclock_item;
+		pu::ui::elm::MenuItem::Ref ip_item;
+
 		pu::ui::elm::Menu::Ref resolution_menu;
+		chiaki::ui::CustomDialog::Ref resolution_dialog;
 		pu::ui::elm::Menu::Ref fps_menu;
+		chiaki::ui::CustomDialog::Ref fps_dialog;
 		pu::ui::elm::Menu::Ref overclock_menu;
+		chiaki::ui::CustomDialog::Ref overclock_dialog;
+
+		// to store account ids
+		pu::String psn_account;
+		// resolution choice items
+		pu::ui::elm::MenuItem::Ref res_720p;
+		pu::ui::elm::MenuItem::Ref res_540p;
+		pu::ui::elm::MenuItem::Ref res_360p;
+		// FPS choice items
+		pu::ui::elm::MenuItem::Ref fps_60;
+		pu::ui::elm::MenuItem::Ref fps_30;
+		// overclock choices
+		pu::ui::elm::MenuItem::Ref oc_1785;
+		pu::ui::elm::MenuItem::Ref oc_1580;
+		pu::ui::elm::MenuItem::Ref oc_1326;
+		pu::ui::elm::MenuItem::Ref oc_1220;
+		pu::ui::elm::MenuItem::Ref oc_1020;
+		// to store Ip addr
+		pu::String ip_address;
+
 	public:
-		SettingLayout();
+		SettingLayout(std::function<void(chiaki::ui::CustomDialog::Ref)> show_custom_dialog_cb);
 		PU_SMART_CTOR(SettingLayout)
 		chiaki::ui::ClickableImage::Ref button;
 };
@@ -96,6 +129,7 @@ class MainApplication : public pu::ui::Application {
 			pu::ui::Application(Renderer), hosts(hosts), discoverymanager(discoverymanager), host(nullptr), io(io) {};
 		PU_SMART_CTOR(MainApplication)
 		Host * GetHost();
+		void ShowCustomDialogCallback(chiaki::ui::CustomDialog::Ref custom_dialog);
 		void SetHostCallback(Host * host);
 		void WakeupHostCallback(Host * host);
 		void ConfigureHostCallback(Host * host);

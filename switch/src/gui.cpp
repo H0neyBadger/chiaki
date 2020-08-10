@@ -18,20 +18,82 @@
 
 #include "gui.h"
 
-SettingLayout::SettingLayout(): pu::ui::Layout::Layout() {
-
+SettingLayout::SettingLayout(std::function<void(chiaki::ui::CustomDialog::Ref)> show_custom_dialog_cb):
+	pu::ui::Layout::Layout(),
+	show_custom_dialog_cb(show_custom_dialog_cb){
+	// main layout
+	this->menu_color = pu::ui::Color(224,224,224,255);
+	this->menu_focus_color = pu::ui::Color(192,192,192,255);
 	this->setting_menu = pu::ui::elm::Menu::New(0,100,1280,
-		pu::ui::Color(100,100,100,100), 200, (620 / 200));
+		this->menu_color, 60, 5);
+	this->setting_menu->SetOnFocusColor(this->menu_focus_color);
 
-	//pu::ui::elm::MenuItem::Ref overclock = pu::ui::elm::MenuItem::New(text);
-	//overclock->SetColor(pu::ui::Color(0,0,0,0));
+	this->account_item = pu::ui::elm::MenuItem::New("PSN Account");
+	this->resolution_item = pu::ui::elm::MenuItem::New("Resolution");
+	this->fps_item = pu::ui::elm::MenuItem::New("FPS");
+	this->overclock_item = pu::ui::elm::MenuItem::New("Overclock");
+	this->ip_item = pu::ui::elm::MenuItem::New("PS4 IP Address");
 
-	this->button = chiaki::ui::ClickableImage::New(300, 300, "romfs:/discover-24px.svg");
-	this->button->SetWidth(40);
-	this->button->SetHeight(40);
-	//this->button->SetOnClick();
+	this->setting_menu->AddItem(account_item);
+	this->setting_menu->AddItem(resolution_item);
+	this->setting_menu->AddItem(fps_item);
+	this->setting_menu->AddItem(overclock_item);
+	this->setting_menu->AddItem(ip_item);
+
 	this->Add(this->setting_menu);
+
+	// nested custom menu
+	int x = 300, y = 300, width = 300, item_size = 60;
+
+	this->resolution_menu = pu::ui::elm::Menu::New(x,y,width,
+		this->menu_color, item_size, 3);
+	this->resolution_menu->SetOnFocusColor(this->menu_focus_color);
+	this->res_720p = pu::ui::elm::MenuItem::New("720p");
+	this->res_540p = pu::ui::elm::MenuItem::New("540p");
+	this->res_360p = pu::ui::elm::MenuItem::New("360p");
+	this->resolution_menu->AddItem(res_720p);
+	this->resolution_menu->AddItem(res_540p);
+	this->resolution_menu->AddItem(res_360p);
+	this->resolution_dialog = chiaki::ui::CustomDialog::New("Video",
+		"Resolution", this->resolution_menu);
+
+	this->fps_menu = pu::ui::elm::Menu::New(x,y,width,
+		this->menu_color, item_size, 2);
+	this->fps_menu->SetOnFocusColor(this->menu_focus_color);
+	this->fps_60 = pu::ui::elm::MenuItem::New("60 FPS");
+	this->fps_30 = pu::ui::elm::MenuItem::New("30 FPS");
+	this->fps_menu->AddItem(fps_60);
+	this->fps_menu->AddItem(fps_30);
+	this->fps_dialog = chiaki::ui::CustomDialog::New("Video",
+		"FPS", this->fps_menu);
+
+
+	this->overclock_menu = pu::ui::elm::Menu::New(x,y,width,
+		this->menu_color, item_size, 5);
+	this->overclock_menu->SetOnFocusColor(this->menu_focus_color);
+	this->oc_1785 = pu::ui::elm::MenuItem::New("1785 MHz (max)");
+	this->oc_1580 = pu::ui::elm::MenuItem::New("1580 MHz");
+	this->oc_1326 = pu::ui::elm::MenuItem::New("1326 MHz");
+	this->oc_1220 = pu::ui::elm::MenuItem::New("1220 MHz");
+	this->oc_1020 = pu::ui::elm::MenuItem::New("1020 MHz (default)");
+	this->overclock_menu->AddItem(oc_1785);
+	this->overclock_menu->AddItem(oc_1580);
+	this->overclock_menu->AddItem(oc_1326);
+	this->overclock_menu->AddItem(oc_1220);
+	this->overclock_menu->AddItem(oc_1020);
+	this->overclock_dialog = chiaki::ui::CustomDialog::New("CPU",
+		"OverClock", this->overclock_menu);
+
+	// this->account_item->AddOnClick(std::function< void()> Callback, u64 Key=KEY_A);
+	this->resolution_item->AddOnClick(std::bind(show_custom_dialog_cb, this->resolution_dialog));
+	this->fps_item->AddOnClick(std::bind(show_custom_dialog_cb, this->fps_dialog));
+	this->overclock_item->AddOnClick(std::bind(show_custom_dialog_cb, this->overclock_dialog));
+	// this->ip_item->AddOnClick(std::function< void()> Callback, u64 Key=KEY_A);
+
+
 }
+
+
 
 /*
 SettingLayout::Update() {
@@ -50,7 +112,7 @@ SettingLayout::Update() {
 */
 
 AddLayout::AddLayout(): pu::ui::Layout::Layout() {
-
+	// TODO
 	this->button = chiaki::ui::ClickableImage::New(300, 300, "romfs:/discover-24px.svg");
 	this->button->SetWidth(40);
 	this->button->SetHeight(40);
@@ -118,9 +180,9 @@ bool MainLayout::UpdateOrCreateHostMenuItem(Host * host){
 						+ "registered: " + (host->registered ? "true": "false") + "\n"
 						+ "host id: " + (host->host_id);
 
-    if ( this->host_menuitems.find(host->host_name) == this->host_menuitems.end() ) {
-        // create host if udefined
-        this->host_menuitems[host->host_name] = pu::ui::elm::MenuItem::New(text);
+	if ( this->host_menuitems.find(host->host_name) == this->host_menuitems.end() ) {
+		// create host if udefined
+		this->host_menuitems[host->host_name] = pu::ui::elm::MenuItem::New(text);
 		this->console_menu->AddItem(this->host_menuitems[host->host_name]);
 		this->host_menuitems[host->host_name]->SetIcon("romfs:/console.svg");
 		this->host_menuitems[host->host_name]->SetColor(pu::ui::Color(0,0,0,0));
@@ -129,10 +191,10 @@ bool MainLayout::UpdateOrCreateHostMenuItem(Host * host){
 		this->host_menuitems[host->host_name]->AddOnClick(std::bind(this->WakeupHostFn, host), KEY_Y);
 		this->host_menuitems[host->host_name]->AddOnClick(std::bind(this->ConfigureHostFn, host), KEY_X);
 		ret = false;
-    } else {
+	} else {
 		// update with latest text
 		this->host_menuitems[host->host_name]->SetName(text);
-    	ret = true;
+		ret = true;
 	}
 	return ret;
 }
@@ -167,7 +229,9 @@ void MainApplication::OnLoad() {
 	this->add_layout->SetOnInput(std::bind(&MainApplication::AddInput, this,
 			std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 
-	this->setting_layout = SettingLayout::New();
+	std::function<void(chiaki::ui::CustomDialog::Ref)> show_custom_dialog_cb =
+		std::bind(&MainApplication::ShowCustomDialogCallback, this, std::placeholders::_1);
+	this->setting_layout = SettingLayout::New(show_custom_dialog_cb);
 	this->setting_layout->SetOnInput(std::bind(&MainApplication::SettingInput, this,
 			std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 }
@@ -192,6 +256,10 @@ void MainApplication::LoadSettingLayout() {
 
 void MainApplication::LoadAddLayout() {
 	this->LoadLayout(this->add_layout);
+}
+
+void MainApplication::ShowCustomDialogCallback(chiaki::ui::CustomDialog::Ref custom_dialog) {
+	custom_dialog->Show(this->rend, this);
 }
 
 void MainApplication::SetHostCallback(Host * host) {
