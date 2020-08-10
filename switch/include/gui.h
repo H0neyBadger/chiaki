@@ -24,6 +24,7 @@
 
 #include <map>
 #include "host.h"
+#include "settings.h"
 #include "discoverymanager.h"
 #include "io.h"
 #include "ui/clickableimage.h"
@@ -36,6 +37,7 @@ class SettingLayout : public pu::ui::Layout::Layout {
 		// default color schemes
 		pu::ui::Color menu_color;
 		pu::ui::Color menu_focus_color;
+		Settings * settings;
 		pu::ui::elm::Menu::Ref setting_menu;
 		pu::ui::elm::MenuItem::Ref account_item;
 		pu::ui::elm::MenuItem::Ref resolution_item;
@@ -69,7 +71,9 @@ class SettingLayout : public pu::ui::Layout::Layout {
 		pu::String ip_address;
 
 	public:
-		SettingLayout(std::function<void(chiaki::ui::CustomDialog::Ref)> show_custom_dialog_cb);
+		SettingLayout(Settings *settings,
+			std::function<void(chiaki::ui::CustomDialog::Ref)> show_custom_dialog_cb);
+
 		PU_SMART_CTOR(SettingLayout)
 		chiaki::ui::ClickableImage::Ref button;
 };
@@ -114,6 +118,7 @@ class MainApplication : public pu::ui::Application {
 		SettingLayout::Ref setting_layout;
 		AddLayout::Ref add_layout;
 		std::map<std::string, Host> * hosts;
+		Settings * settings;
 		DiscoveryManager * discoverymanager;
 		Host * host;
 		IO * io;
@@ -125,8 +130,19 @@ class MainApplication : public pu::ui::Application {
 	public:
 		//using Application::Application;
 		//MainApplication();
-		MainApplication(pu::ui::render::Renderer::Ref Renderer, std::map<std::string, Host> * hosts, DiscoveryManager * discoverymanager, IO * io):
-			pu::ui::Application(Renderer), hosts(hosts), discoverymanager(discoverymanager), host(nullptr), io(io) {};
+		MainApplication(
+			pu::ui::render::Renderer::Ref Renderer,
+			std::map<std::string, Host> * hosts,
+			Settings * settings,
+			DiscoveryManager * discoverymanager,
+			IO * io):
+				pu::ui::Application(Renderer),
+				hosts(hosts),
+				settings(settings),
+				discoverymanager(discoverymanager),
+				host(nullptr),
+				io(io) {};
+
 		PU_SMART_CTOR(MainApplication)
 		Host * GetHost();
 		void ShowCustomDialogCallback(chiaki::ui::CustomDialog::Ref custom_dialog);

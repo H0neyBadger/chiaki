@@ -85,12 +85,19 @@ void Settings::ParseFile(){
 					CHIAKI_LOGV(this->log, "PSN_ONLINE_ID %s", value.c_str());
 					if(current_host != nullptr){
 						current_host->psn_online_id = value;
+					} else {
+						// current_host == nullptr
+						// means we are in global ini section
+						// update default setting
+						this->global_psn_online_id = value;
 					}
 					break;
 				case PSN_ACCOUNT_ID:
 					CHIAKI_LOGV(this->log, "PSN_ACCOUNT_ID %s", value.c_str());
 					if(current_host != nullptr){
 						current_host->psn_account_id = value;
+					} else {
+						this->global_psn_account_id = value;
 					}
 					break;
 				case RP_KEY:
@@ -130,22 +137,64 @@ void Settings::ParseFile(){
 					}
 					break;
 				case VIDEO_RESOLUTION:
-					if (value.compare("1080p") == 0) {
-						current_host->video_resolution = CHIAKI_VIDEO_RESOLUTION_PRESET_1080p;
-					} else if (value.compare("720p") == 0) {
-						current_host->video_resolution = CHIAKI_VIDEO_RESOLUTION_PRESET_720p;
-					} else if (value.compare("540p") == 0) {
-						current_host->video_resolution = CHIAKI_VIDEO_RESOLUTION_PRESET_540p;
-					} else if (value.compare("360p") == 0) {
-						current_host->video_resolution = CHIAKI_VIDEO_RESOLUTION_PRESET_360p;
+					{
+						ChiakiVideoResolutionPreset cvrp = CHIAKI_VIDEO_RESOLUTION_PRESET_720p;
+						if (value.compare("1080p") == 0) {
+							cvrp = CHIAKI_VIDEO_RESOLUTION_PRESET_1080p;
+						} else if (value.compare("720p") == 0) {
+							cvrp = CHIAKI_VIDEO_RESOLUTION_PRESET_720p;
+						} else if (value.compare("540p") == 0) {
+							cvrp = CHIAKI_VIDEO_RESOLUTION_PRESET_540p;
+						} else if (value.compare("360p") == 0) {
+							cvrp = CHIAKI_VIDEO_RESOLUTION_PRESET_360p;
+						}
+
+						if(current_host != nullptr){
+							current_host->video_resolution = cvrp;
+						} else {
+							this->global_video_resolution = cvrp;
+						}
 					}
-					current_host->video_resolution = CHIAKI_VIDEO_RESOLUTION_PRESET_720p;
 					break;
 				case VIDEO_FPS:
-					if (value.compare("60") == 0) {
-						current_host->video_fps = CHIAKI_VIDEO_FPS_PRESET_60;
-					} else if (value.compare("30") == 0) {
-						current_host->video_fps = CHIAKI_VIDEO_FPS_PRESET_30;
+					{
+						ChiakiVideoFPSPreset cvfp = CHIAKI_VIDEO_FPS_PRESET_60;
+						if (value.compare("60") == 0) {
+							cvfp = CHIAKI_VIDEO_FPS_PRESET_60;
+						} else if (value.compare("30") == 0) {
+							cvfp = CHIAKI_VIDEO_FPS_PRESET_30;
+						}
+
+						if(current_host != nullptr){
+							current_host->video_fps = cvfp;
+						} else {
+							this->global_video_fps = cvfp;
+						}
+					}
+					break;
+				case CPU_OVERCLOCK:
+					{
+						int oc = OC_1326;
+						int v = atoi(value.c_str());
+						if ( v > OC_1580 ) {
+							// max OC
+							oc = OC_1785;
+						} else if ( OC_1580 >= v && v > OC_1326 ) {
+							oc = OC_1580;
+						} else if ( OC_1326 >= v && v > OC_1220 ) {
+							oc = OC_1326;
+						} else if ( OC_1220 >= v && v > OC_1020 ) {
+							oc = OC_1220;
+						} else if ( OC_1020 >= v ) {
+							// no overclock
+							// default nintendo switch value
+							oc = OC_1020;
+						}
+						if(current_host != nullptr){
+							current_host->cpu_overclock = oc;
+						} else {
+							this->global_cpu_overclock = oc;
+						}
 					}
 					break;
 			} // ci switch
@@ -170,7 +219,50 @@ int Settings::WriteFile(){
 	if(this->hosts == nullptr){
 		return -1;
 	}
+
 	if(config_file.is_open()){
+		// save global settings
+		if(this->global_video_resolution){
+			switch(this->global_video_resolution){
+				case CHIAKI_VIDEO_RESOLUTION_PRESET_360p:
+					config_file << "video_resolution = \"360p\"\n";
+					break;
+				case CHIAKI_VIDEO_RESOLUTION_PRESET_540p:
+					config_file << "video_resolution = \"540p\"\n";
+					break;
+				case CHIAKI_VIDEO_RESOLUTION_PRESET_720p:
+					config_file << "video_resolution = \"720p\"\n";
+					break;
+				case CHIAKI_VIDEO_RESOLUTION_PRESET_1080p:
+					config_file << "video_resolution = \"1080p\"\n";
+					break;
+			}
+		}
+
+		if(this->global_video_fps){
+			switch(this->global_video_fps){
+				case CHIAKI_VIDEO_FPS_PRESET_30:
+					config_file << "video_fps = 30\n";
+					break;
+				case CHIAKI_VIDEO_FPS_PRESET_60:
+					config_file << "video_resolution = 60\n";
+					break;
+			}
+		}
+
+		if(this->global_cpu_overclock > 0){
+			config_file << "cpu_overclock = \"" << this->global_cpu_overclock << "\"\n";
+		}
+
+		if(this->global_psn_online_id.length()){
+			config_file << "psn_online_id = \"" << this->global_psn_online_id << "\"\n";
+		}
+		if(this->global_psn_account_id.length()){
+			config_file << "psn_account_id = \"" << this->global_psn_account_id << "\"\n";
+		}
+
+		// write host config in file
+		// loop over all configured
 		for( auto it = this->hosts->begin(); it != this->hosts->end(); it++ ){
 			// first is std::string
 			// second is Host
@@ -199,6 +291,10 @@ int Settings::WriteFile(){
 				case CHIAKI_VIDEO_FPS_PRESET_60:
 					config_file << "video_resolution = 60\n";
 					break;
+			}
+
+			if(it->second.cpu_overclock > 0){
+				config_file << "cpu_overclock = \"" << it->second.cpu_overclock << "\"\n";
 			}
 
 			if(it->second.psn_online_id.length()){

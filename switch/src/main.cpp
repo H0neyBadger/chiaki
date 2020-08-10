@@ -158,10 +158,22 @@ int main(int argc, char* argv[]){
 		int d = discoverymanager.Send();
 #ifdef __SWITCH__
 		// load Plutonium GUI
-		auto plutonium_renderer_options = pu::ui::render::RendererInitOptions(SDL_INIT_EVERYTHING,
-			pu::ui::render::RendererHardwareFlags).WithIMG(pu::ui::render::IMGAllFlags).WithMixer(pu::ui::render::MixerAllFlags).WithTTF();
-		auto plutonium_renderer = pu::ui::render::Renderer::New(plutonium_renderer_options);
-		auto plutonium_app = MainApplication::New(plutonium_renderer, &hosts, &discoverymanager, &io);
+		auto plutonium_renderer_options = pu::ui::render::
+			RendererInitOptions(
+				SDL_INIT_EVERYTHING,
+				pu::ui::render::RendererHardwareFlags
+			).WithIMG(
+				pu::ui::render::IMGAllFlags
+			).WithMixer(
+				pu::ui::render::MixerAllFlags
+			).WithTTF();
+
+		auto plutonium_renderer = pu::ui::render::
+			Renderer::New(plutonium_renderer_options);
+
+		auto plutonium_app = MainApplication::New(plutonium_renderer,
+			&hosts, &settings, &discoverymanager, &io);
+
 	    plutonium_app->Prepare();
 	    plutonium_app->Show();
 		// retrieve ps4 gui host ptr

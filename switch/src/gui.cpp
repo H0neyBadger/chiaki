@@ -18,9 +18,11 @@
 
 #include "gui.h"
 
-SettingLayout::SettingLayout(std::function<void(chiaki::ui::CustomDialog::Ref)> show_custom_dialog_cb):
-	pu::ui::Layout::Layout(),
-	show_custom_dialog_cb(show_custom_dialog_cb){
+SettingLayout::SettingLayout(Settings *settings,
+	std::function<void(chiaki::ui::CustomDialog::Ref)> show_custom_dialog_cb):
+		pu::ui::Layout::Layout(),
+		settings(settings),
+		show_custom_dialog_cb(show_custom_dialog_cb){
 	// main layout
 	this->menu_color = pu::ui::Color(224,224,224,255);
 	this->menu_focus_color = pu::ui::Color(192,192,192,255);
@@ -94,23 +96,6 @@ SettingLayout::SettingLayout(std::function<void(chiaki::ui::CustomDialog::Ref)> 
 }
 
 
-
-/*
-SettingLayout::Update() {
-	this->menu = pu::ui::elm::Menu::New(0,100,1280,
-		pu::ui::Color(0,0,0,0), 200, (620 / 200));
-	std::String resolution_str;
-	this->settings->GetResolutionString(&resolution_str);
-	this->resolution = pu::ui::elm::MenuItem::New("resolution: " + resolution_str);
-
-	this->button = chiaki::ui::ClickableImage::New(300, 300, "romfs:/discover-24px.svg");
-	this->button->SetWidth(40);
-	this->button->SetHeight(40);
-	//this->button->SetOnClick();
-	this->Add(this->button);
-}
-*/
-
 AddLayout::AddLayout(): pu::ui::Layout::Layout() {
 	// TODO
 	this->button = chiaki::ui::ClickableImage::New(300, 300, "romfs:/discover-24px.svg");
@@ -120,7 +105,8 @@ AddLayout::AddLayout(): pu::ui::Layout::Layout() {
 	this->Add(this->button);
 }
 
-MainLayout::MainLayout(std::map<std::string, Host> * hosts,
+MainLayout::MainLayout(
+	std::map<std::string, Host> * hosts,
 	std::function<void(Host *)> DiscoverySendFn,
 	std::function<void(Host *)> SetHostFn,
 	std::function<void(Host *)> WakeupHostFn,
@@ -231,7 +217,7 @@ void MainApplication::OnLoad() {
 
 	std::function<void(chiaki::ui::CustomDialog::Ref)> show_custom_dialog_cb =
 		std::bind(&MainApplication::ShowCustomDialogCallback, this, std::placeholders::_1);
-	this->setting_layout = SettingLayout::New(show_custom_dialog_cb);
+	this->setting_layout = SettingLayout::New(this->settings, show_custom_dialog_cb);
 	this->setting_layout->SetOnInput(std::bind(&MainApplication::SettingInput, this,
 			std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 }

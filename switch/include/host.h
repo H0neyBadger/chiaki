@@ -31,6 +31,13 @@
 #include "exception.h"
 #include "io.h"
 
+#define OC_1785 1785000000
+#define OC_1580 1580000000
+#define OC_1326 1326000000
+#define OC_1220 1220000000
+#define OC_1020 1020000000
+
+
 class DiscoveryManager;
 static void Discovery(ChiakiDiscoveryHost*, void*);
 static void Regist(ChiakiRegistEvent*, void*);
@@ -45,6 +52,7 @@ class Host
 		//video config
 		ChiakiVideoResolutionPreset video_resolution = CHIAKI_VIDEO_RESOLUTION_PRESET_720p;
 		ChiakiVideoFPSPreset video_fps = CHIAKI_VIDEO_FPS_PRESET_30;
+		int cpu_overclock = OC_1326;
 		// info from discovery manager
 		int system_version;
 		int device_discovery_protocol_version;
@@ -58,7 +66,7 @@ class Host
 		std::string ap_key;
 		std::string ap_name;
 		std::string ps4_nickname;
-        // mac address = 48 bits
+		// mac address = 48 bits
 		uint8_t ps4_mac[6];
 		char rp_regist_key[CHIAKI_SESSION_AUTH_SIZE];
 		uint32_t rp_key_type;

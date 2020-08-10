@@ -27,7 +27,14 @@ class Settings {
 	private:
 		ChiakiLog *log = nullptr;
 		const char * filename = "chiaki.conf";
+
 		std::map<std::string, Host> *hosts;
+		// global_settings from psedo INI file
+		ChiakiVideoResolutionPreset global_video_resolution = CHIAKI_VIDEO_RESOLUTION_PRESET_720p;
+		ChiakiVideoFPSPreset global_video_fps = CHIAKI_VIDEO_FPS_PRESET_30;
+		int global_cpu_overclock = OC_1326;
+		std::string global_psn_online_id;
+		std::string global_psn_account_id;
 
 		typedef enum configurationitem{
 			UNKNOWN,
@@ -40,6 +47,7 @@ class Settings {
 			RP_REGIST_KEY,
 			VIDEO_RESOLUTION,
 			VIDEO_FPS,
+			CPU_OVERCLOCK,
 		} ConfigurationItem;
 
 		// dummy parser implementation
@@ -55,6 +63,7 @@ class Settings {
 			{ RP_REGIST_KEY, std::regex("^\\s*rp_regist_key\\s*=\\s*\"?([\\w/=+]+)\"?") },
 			{ VIDEO_RESOLUTION, std::regex("^\\s*video_resolution\\s*=\\s*\"?(1080p|720p|540p|360p)\"?") },
 			{ VIDEO_FPS, std::regex("^\\s*video_fps\\s*=\\s*\"?(60|30)\"?") },
+			{ CPU_OVERCLOCK, std::regex("^\\s*cpu_overclock\\s*=\\s*\"?(\\d+)\"?") },
 		};
 
 		ConfigurationItem ParseLine(std::string *line, std::string *value);
