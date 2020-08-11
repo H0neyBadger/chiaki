@@ -18,11 +18,12 @@
 
 #include "gui.h"
 
-SettingLayout::SettingLayout(Settings *settings,
+SettingLayout::SettingLayout(
+	Settings *settings,
 	std::function<void(chiaki::ui::CustomDialog::Ref)> show_custom_dialog_cb):
-		pu::ui::Layout::Layout(),
 		settings(settings),
-		show_custom_dialog_cb(show_custom_dialog_cb){
+		show_custom_dialog_cb(show_custom_dialog_cb) {
+
 	// main layout
 	this->menu_color = pu::ui::Color(224,224,224,255);
 	this->menu_focus_color = pu::ui::Color(192,192,192,255);
@@ -69,7 +70,6 @@ SettingLayout::SettingLayout(Settings *settings,
 	this->fps_dialog = chiaki::ui::CustomDialog::New("Video",
 		"FPS", this->fps_menu);
 
-
 	this->overclock_menu = pu::ui::elm::Menu::New(x,y,width,
 		this->menu_color, item_size, 5);
 	this->overclock_menu->SetOnFocusColor(this->menu_focus_color);
@@ -91,8 +91,6 @@ SettingLayout::SettingLayout(Settings *settings,
 	this->fps_item->AddOnClick(std::bind(show_custom_dialog_cb, this->fps_dialog));
 	this->overclock_item->AddOnClick(std::bind(show_custom_dialog_cb, this->overclock_dialog));
 	// this->ip_item->AddOnClick(std::function< void()> Callback, u64 Key=KEY_A);
-
-
 }
 
 

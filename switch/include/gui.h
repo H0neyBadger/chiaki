@@ -31,13 +31,15 @@
 #include "ui/customdialog.h"
 
 class SettingLayout : public pu::ui::Layout::Layout {
-	private:
+	protected:
+		// global setting object
+		Settings * settings;
 		// display custom dialog from main app
 		std::function<void(chiaki::ui::CustomDialog::Ref)> show_custom_dialog_cb;
 		// default color schemes
 		pu::ui::Color menu_color;
 		pu::ui::Color menu_focus_color;
-		Settings * settings;
+
 		pu::ui::elm::Menu::Ref setting_menu;
 		pu::ui::elm::MenuItem::Ref account_item;
 		pu::ui::elm::MenuItem::Ref resolution_item;
@@ -53,7 +55,8 @@ class SettingLayout : public pu::ui::Layout::Layout {
 		chiaki::ui::CustomDialog::Ref overclock_dialog;
 
 		// to store account ids
-		pu::String psn_account;
+		pu::String psn_online_id;
+		pu::String psn_account_id;
 		// resolution choice items
 		pu::ui::elm::MenuItem::Ref res_720p;
 		pu::ui::elm::MenuItem::Ref res_540p;
@@ -73,9 +76,7 @@ class SettingLayout : public pu::ui::Layout::Layout {
 	public:
 		SettingLayout(Settings *settings,
 			std::function<void(chiaki::ui::CustomDialog::Ref)> show_custom_dialog_cb);
-
 		PU_SMART_CTOR(SettingLayout)
-		chiaki::ui::ClickableImage::Ref button;
 };
 
 class AddLayout : public pu::ui::Layout::Layout {
