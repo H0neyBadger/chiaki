@@ -33,7 +33,9 @@
 class SettingLayout : public pu::ui::Layout::Layout {
 	protected:
 		// global setting object
-		Settings * settings;
+		Settings *settings;
+		Host *host = nullptr;
+		IO *io;
 		// display custom dialog from main app
 		std::function<void(chiaki::ui::CustomDialog::Ref)> show_custom_dialog_cb;
 		// default color schemes
@@ -41,42 +43,52 @@ class SettingLayout : public pu::ui::Layout::Layout {
 		pu::ui::Color menu_focus_color;
 
 		pu::ui::elm::Menu::Ref setting_menu;
-		pu::ui::elm::MenuItem::Ref account_item;
-		pu::ui::elm::MenuItem::Ref resolution_item;
-		pu::ui::elm::MenuItem::Ref fps_item;
-		pu::ui::elm::MenuItem::Ref overclock_item;
-		pu::ui::elm::MenuItem::Ref ip_item;
+		// general settings
+		pu::ui::elm::MenuItem::Ref psn_account_id_item;
+		pu::ui::elm::MenuItem::Ref psn_online_id_item;
+		pu::ui::elm::MenuItem::Ref video_resolution_item;
+		pu::ui::elm::MenuItem::Ref video_fps_item;
+		pu::ui::elm::MenuItem::Ref cpu_overclock_item;
+		// host specific settings
+		pu::ui::elm::MenuItem::Ref host_name_item;
+		pu::ui::elm::MenuItem::Ref host_ipaddr_item;
+		pu::ui::elm::MenuItem::Ref host_rp_regist_key_item;
+		pu::ui::elm::MenuItem::Ref host_rp_key_type_item;
+		pu::ui::elm::MenuItem::Ref host_rp_key_item;
 
-		pu::ui::elm::Menu::Ref resolution_menu;
-		chiaki::ui::CustomDialog::Ref resolution_dialog;
-		pu::ui::elm::Menu::Ref fps_menu;
-		chiaki::ui::CustomDialog::Ref fps_dialog;
-		pu::ui::elm::Menu::Ref overclock_menu;
-		chiaki::ui::CustomDialog::Ref overclock_dialog;
+		// nested menu (menu in menu with custom dialog)
+		pu::ui::elm::Menu::Ref video_resolution_menu;
+		pu::ui::elm::Menu::Ref video_fps_menu;
+		pu::ui::elm::Menu::Ref cpu_overclock_menu;
+		chiaki::ui::CustomDialog::Ref video_resolution_dialog;
+		chiaki::ui::CustomDialog::Ref video_fps_dialog;
+		chiaki::ui::CustomDialog::Ref cpu_overclock_dialog;
 
-		// to store account ids
-		pu::String psn_online_id;
-		pu::String psn_account_id;
 		// resolution choice items
-		pu::ui::elm::MenuItem::Ref res_720p;
-		pu::ui::elm::MenuItem::Ref res_540p;
-		pu::ui::elm::MenuItem::Ref res_360p;
+		pu::ui::elm::MenuItem::Ref video_res_720p;
+		pu::ui::elm::MenuItem::Ref video_res_540p;
+		pu::ui::elm::MenuItem::Ref video_res_360p;
 		// FPS choice items
-		pu::ui::elm::MenuItem::Ref fps_60;
-		pu::ui::elm::MenuItem::Ref fps_30;
+		pu::ui::elm::MenuItem::Ref video_fps_60;
+		pu::ui::elm::MenuItem::Ref video_fps_30;
 		// overclock choices
-		pu::ui::elm::MenuItem::Ref oc_1785;
-		pu::ui::elm::MenuItem::Ref oc_1580;
-		pu::ui::elm::MenuItem::Ref oc_1326;
-		pu::ui::elm::MenuItem::Ref oc_1220;
-		pu::ui::elm::MenuItem::Ref oc_1020;
-		// to store Ip addr
-		pu::String ip_address;
+		pu::ui::elm::MenuItem::Ref cpu_oc_1785;
+		pu::ui::elm::MenuItem::Ref cpu_oc_1580;
+		pu::ui::elm::MenuItem::Ref cpu_oc_1326;
+		pu::ui::elm::MenuItem::Ref cpu_oc_1220;
+		pu::ui::elm::MenuItem::Ref cpu_oc_1020;
+
+		void SetPSNAccountIDCallback();
+		void SetPSNOnlineIDCallback();
+		void SetVideoResolutionCallback(ChiakiVideoResolutionPreset value);
+		void SetVideoFPSCallback(ChiakiVideoFPSPreset value);
+		void SetCPUOverclockCallback(int cpu_overclock);
 
 	public:
-		SettingLayout(Settings *settings,
+		SettingLayout(Host * host, Settings *settings, IO *io,
 			std::function<void(chiaki::ui::CustomDialog::Ref)> show_custom_dialog_cb);
 		PU_SMART_CTOR(SettingLayout)
+		void UpdateSettings();
 };
 
 class AddLayout : public pu::ui::Layout::Layout {

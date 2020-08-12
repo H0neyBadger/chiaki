@@ -9,6 +9,8 @@ set(PORTLIBS_PREFIX "$ENV{PORTLIBS_PREFIX}")
 # include devkitpro toolchain
 include("${DEVKITPRO}/switch.cmake")
 
+# Enable gcc -g, to use
+# /opt/devkitpro/devkitA64/bin/aarch64-none-elf-addr2line -e build_switch/switch/chiaki -f -p -C -a 0xCCB5C
 # set(CMAKE_BUILD_TYPE Debug)
 # set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 # set(BUILD_SHARED_LIBS OFF CACHE INTERNAL "Shared libs not available" )

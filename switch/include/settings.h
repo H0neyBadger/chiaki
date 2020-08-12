@@ -33,8 +33,8 @@ class Settings {
 		ChiakiVideoResolutionPreset global_video_resolution = CHIAKI_VIDEO_RESOLUTION_PRESET_720p;
 		ChiakiVideoFPSPreset global_video_fps = CHIAKI_VIDEO_FPS_PRESET_30;
 		int global_cpu_overclock = OC_1326;
-		std::string global_psn_online_id;
-		std::string global_psn_account_id;
+		std::string global_psn_online_id = "";
+		std::string global_psn_account_id = "";
 
 		typedef enum configurationitem{
 			UNKNOWN,
@@ -70,10 +70,10 @@ class Settings {
 		size_t GetB64encodeSize(size_t);
 	public:
 		Settings(ChiakiLog * log, std::map<std::string, Host> *hosts): log(log), hosts(hosts){};
-		std::string GetPSNOnlineId(Host * host);
-		std::string GetPSNAccountId(Host * host);
-		void SetPSNOnlineId(Host * host, std::string psn_online_id);
-		void SetPSNAccountId(Host * host, std::string psn_account_id);
+		std::string GetPSNOnlineID(Host * host);
+		std::string GetPSNAccountID(Host * host);
+		void SetPSNOnlineID(Host * host, std::string psn_online_id);
+		void SetPSNAccountID(Host * host, std::string psn_account_id);
 		ChiakiVideoResolutionPreset GetVideoResolution(Host * host);
 		ChiakiVideoFPSPreset GetVideoFPS(Host * host);
 		std::string ResolutionPresetToString(ChiakiVideoResolutionPreset resolution);
@@ -89,13 +89,14 @@ class Settings {
 		int GetCPUOverclock(Host * host);
 		void SetCPUOverclock(Host * host, int value);
 		void SetCPUOverclock(Host * host, std::string value);
-		std::string GetHostAddr(Host * host);
-		bool SetRPKeyType(Host * host, std::string value);
-		int GetRPKeyType(Host * host);
-		std::string GetRPKey(Host * host);
-		std::string GetRPRegistKey(Host * host);
-		bool SetRPKey(Host * host, std::string rp_key_b64);
-		bool SetRPRegistKey(Host * host, std::string rp_regist_key_b64);
+		std::string GetHostIPAddr(Host * host);
+		std::string GetHostName(Host * host);
+		bool SetHostRPKeyType(Host * host, std::string value);
+		int GetHostRPKeyType(Host * host);
+		std::string GetHostRPKey(Host * host);
+		std::string GetHostRPRegistKey(Host * host);
+		bool SetHostRPKey(Host * host, std::string rp_key_b64);
+		bool SetHostRPRegistKey(Host * host, std::string rp_regist_key_b64);
 		void ParseFile();
 		int WriteFile();
 };

@@ -46,7 +46,7 @@ size_t Settings::GetB64encodeSize(size_t in){
 	return ((4 * in / 3) + 3) & ~3;
 }
 
-std::string Settings::GetPSNOnlineId(Host * host){
+std::string Settings::GetPSNOnlineID(Host * host){
 	if(host == nullptr){
 		return this->global_psn_online_id;
 	} else {
@@ -54,7 +54,7 @@ std::string Settings::GetPSNOnlineId(Host * host){
 	}
 }
 
-std::string Settings::GetPSNAccountId(Host * host){
+std::string Settings::GetPSNAccountID(Host * host){
 	if(host == nullptr){
 		return this->global_psn_account_id;
 	} else {
@@ -62,7 +62,7 @@ std::string Settings::GetPSNAccountId(Host * host){
 	}
 }
 
-void Settings::SetPSNOnlineId(Host * host, std::string psn_online_id){
+void Settings::SetPSNOnlineID(Host * host, std::string psn_online_id){
 	if(host == nullptr){
 		this->global_psn_online_id = psn_online_id;
 	} else {
@@ -70,7 +70,7 @@ void Settings::SetPSNOnlineId(Host * host, std::string psn_online_id){
 	}
 }
 
-void Settings::SetPSNAccountId(Host * host, std::string psn_account_id){
+void Settings::SetPSNAccountID(Host * host, std::string psn_account_id){
 	if(host == nullptr){
 		this->global_psn_account_id = psn_account_id;
 	} else {
@@ -235,25 +235,34 @@ void Settings::SetCPUOverclock(Host * host, std::string value){
 	this->SetCPUOverclock(host, v);
 }
 
-std::string Settings::GetHostAddr(Host * host){
+std::string Settings::GetHostIPAddr(Host * host){
 	if(host != nullptr){
 		return host->host_addr;
 	} else {
-		CHIAKI_LOGE(this->log, "Cannot GetHostAddr from nullptr host");
+		CHIAKI_LOGE(this->log, "Cannot GetHostIPAddr from nullptr host");
 	}
 	return "";
 }
 
-int Settings::GetRPKeyType(Host * host){
+std::string Settings::GetHostName(Host * host){
+	if(host != nullptr){
+		return host->host_name;
+	} else {
+		CHIAKI_LOGE(this->log, "Cannot GetHostName from nullptr host");
+	}
+	return "";
+}
+
+int Settings::GetHostRPKeyType(Host * host){
 	if(host != nullptr){
 		return host->rp_key_type;
 	}
-	CHIAKI_LOGE(this->log, "Cannot GetRPKeyType from nullptr host");
+	CHIAKI_LOGE(this->log, "Cannot GetHostRPKeyType from nullptr host");
 	return 0;
 }
 
 
-bool Settings::SetRPKeyType(Host * host, std::string value){
+bool Settings::SetHostRPKeyType(Host * host, std::string value){
 	if(host != nullptr){
 		// TODO Check possible rp_type values
 		host->rp_key_type = std::atoi(value.c_str());
@@ -262,7 +271,7 @@ bool Settings::SetRPKeyType(Host * host, std::string value){
 	return false;
 }
 
-std::string Settings::GetRPKey(Host * host){
+std::string Settings::GetHostRPKey(Host * host){
 	if(host != nullptr){
 		if(host->rp_key_data || host->registered){
 			size_t rp_key_b64_sz = this->GetB64encodeSize(0x10);
@@ -278,12 +287,12 @@ std::string Settings::GetRPKey(Host * host){
 			}
 		}
 	} else {
-		CHIAKI_LOGE(this->log, "Cannot GetRPKey from nullptr host");
+		CHIAKI_LOGE(this->log, "Cannot GetHostRPKey from nullptr host");
 	}
 	return "";
 }
 
-std::string Settings::GetRPRegistKey(Host * host){
+std::string Settings::GetHostRPRegistKey(Host * host){
 	if(host != nullptr){
 		if(host->rp_key_data || host->registered){
 			size_t rp_regist_key_b64_sz = this->GetB64encodeSize(CHIAKI_SESSION_AUTH_SIZE);
@@ -299,12 +308,12 @@ std::string Settings::GetRPRegistKey(Host * host){
 			}
 		}
 	} else {
-		CHIAKI_LOGE(this->log, "Cannot GetRPRegistKey from nullptr host");
+		CHIAKI_LOGE(this->log, "Cannot GetHostRPRegistKey from nullptr host");
 	}
 	return "";
 }
 
-bool Settings::SetRPKey(Host * host, std::string rp_key_b64){
+bool Settings::SetHostRPKey(Host * host, std::string rp_key_b64){
 	if(host != nullptr){
 		size_t rp_key_sz = sizeof(host->rp_key);
 		ChiakiErrorCode err = chiaki_base64_decode(
@@ -316,12 +325,12 @@ bool Settings::SetRPKey(Host * host, std::string rp_key_b64){
 			return true;
 		}
 	} else {
-		CHIAKI_LOGE(this->log, "Cannot SetRPKey from nullptr host");
+		CHIAKI_LOGE(this->log, "Cannot SetHostRPKey from nullptr host");
 	}
 	return false;
 }
 
-bool Settings::SetRPRegistKey(Host * host, std::string rp_regist_key_b64){
+bool Settings::SetHostRPRegistKey(Host * host, std::string rp_regist_key_b64){
 	if(host != nullptr){
 		size_t rp_regist_key_sz = sizeof(host->rp_regist_key);
 		ChiakiErrorCode err = chiaki_base64_decode(
@@ -333,15 +342,14 @@ bool Settings::SetRPRegistKey(Host * host, std::string rp_regist_key_b64){
 			return true;
 		}
 	} else {
-		CHIAKI_LOGE(this->log, "Cannot SetRPKey from nullptr host");
+		CHIAKI_LOGE(this->log, "Cannot SetHostRPKey from nullptr host");
 	}
 	return false;
 }
 
 void Settings::ParseFile(){
-	CHIAKI_LOGI(this->log, "fstream");
+	CHIAKI_LOGI(this->log, "Parse config file %s", this->filename);
 	std::fstream config_file;
-	//CHIAKI_LOGI(this->log, "Open config file %s", this->filename);
 	config_file.open(this->filename, std::fstream::in);
 	std::string line;
 	std::string value;
@@ -378,29 +386,29 @@ void Settings::ParseFile(){
 					// current_host == nullptr
 					// means we are in global ini section
 					// update default setting
-					this->SetPSNOnlineId(current_host, value);
+					this->SetPSNOnlineID(current_host, value);
 					break;
 				case PSN_ACCOUNT_ID:
 					CHIAKI_LOGV(this->log, "PSN_ACCOUNT_ID %s", value.c_str());
-					this->SetPSNAccountId(current_host, value);
+					this->SetPSNAccountID(current_host, value);
 					break;
 				case RP_KEY:
 					CHIAKI_LOGV(this->log, "RP_KEY %s", value.c_str());
 					if(current_host != nullptr){
-						rp_key_b = this->SetRPKey(current_host, value);
+						rp_key_b = this->SetHostRPKey(current_host, value);
 					}
 					break;
 				case RP_KEY_TYPE:
 					CHIAKI_LOGV(this->log, "RP_KEY_TYPE %s", value.c_str());
 					if(current_host != nullptr){
 						// TODO Check possible rp_type values
-						rp_key_type_b = this->SetRPKeyType(current_host, value);
+						rp_key_type_b = this->SetHostRPKeyType(current_host, value);
 					}
 					break;
 				case RP_REGIST_KEY:
 					CHIAKI_LOGV(this->log, "RP_REGIST_KEY %s", value.c_str());
 					if(current_host != nullptr){
-						rp_regist_key_b = this->SetRPRegistKey(current_host, value);
+						rp_regist_key_b = this->SetHostRPRegistKey(current_host, value);
 					}
 					break;
 				case VIDEO_RESOLUTION:
@@ -425,19 +433,20 @@ void Settings::ParseFile(){
 
 int Settings::WriteFile(){
 	std::fstream config_file;
-	CHIAKI_LOGI(this->log, "Open config file %s", this->filename);
+	CHIAKI_LOGI(this->log, "Write config file %s", this->filename);
 	// flush file (trunc)
 	// the config file is completely overwritten
 	config_file.open(this->filename, std::fstream::out | std::ofstream::trunc);
 	std::string line;
 	std::string value;
+
 	if(this->hosts == nullptr){
-		return -1;
+	        return -1;
 	}
 
 	if(config_file.is_open()){
 		// save global settings
-		std::string value;
+
 		if(this->global_video_resolution){
 			config_file << "video_resolution = \""
 				<< this->ResolutionPresetToString(this->GetVideoResolution(nullptr))
@@ -498,8 +507,8 @@ int Settings::WriteFile(){
 				char rp_key_type[33] = { 0 };
                 snprintf(rp_key_type, sizeof(rp_key_type), "%d", it->second.rp_key_type);
 				// save registered rp key for auto login
-				config_file << "rp_key = \"" << this->GetRPKey(&it->second) << "\"\n"
-					<< "rp_regist_key = \"" << this->GetRPRegistKey(&it->second) << "\"\n"
+				config_file << "rp_key = \"" << this->GetHostRPKey(&it->second) << "\"\n"
+					<< "rp_regist_key = \"" << this->GetHostRPRegistKey(&it->second) << "\"\n"
 					<< "rp_key_type = " << rp_key_type << "\n";
 			} //
 			config_file << "\n";
