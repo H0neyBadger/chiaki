@@ -124,16 +124,6 @@ namespace chiaki::ui
 					tch.X = nxtch.px;
 					tch.Y = nxtch.py;
 				}
-				else if(k & KEY_A)
-				{
-					this->cancel = false;
-					return false;
-				}
-				else if(k & KEY_B)
-				{
-					this->cancel = true;
-					return false;
-				}
 				// grey backgroud
 				Drawer->RenderRectangleFill({ 0, 0, 0, 125 }, 0, 0, 1280, 720);
 				// then create a white rouded rectangle (with radius = 30)
@@ -147,8 +137,19 @@ namespace chiaki::ui
 				// forward input to element
 				this->element->SetVisible(true);
 				this->element->OnRender(Drawer, this->element->GetProcessedX(), this->element->GetProcessedY());
+				// printf("element k %d, u %d, h %d, tch %d\n", k, u, h, tch);
 				this->element->OnInput(k, u, h, tch);
 
+				if(k & KEY_A)
+				{
+					this->cancel = false;
+					return false;
+				}
+				else if(k & KEY_B)
+				{
+					this->cancel = true;
+					return false;
+				}
 				return true;
 			});
 			if(!ok)

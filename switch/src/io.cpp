@@ -328,7 +328,6 @@ bool IO::ReadUserKeyboard(char *buffer, size_t buffer_size){
 
 		if (R_SUCCEEDED(rc)) {
 			CHIAKI_LOGI(this->log, "Got user input: %s\n", buffer);
-			return false;
 		} else {
 			CHIAKI_LOGE(this->log, "swkbdShow() error: %u\n", rc);
 			return false;

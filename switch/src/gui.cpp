@@ -140,16 +140,20 @@ SettingLayout::SettingLayout(
 
 void SettingLayout::SetPSNAccountIDCallback(){
 	char psn_account_id[255];
-	io->ReadUserKeyboard(psn_account_id, sizeof(psn_account_id));
-	settings->SetPSNAccountID(this->host, psn_account_id);
-	this->UpdateSettings();
+	bool input = io->ReadUserKeyboard(psn_account_id, sizeof(psn_account_id));
+	if(input){
+		settings->SetPSNAccountID(this->host, psn_account_id);
+		this->UpdateSettings();
+	}
 }
 
 void SettingLayout::SetPSNOnlineIDCallback(){
 	char psn_online_id[255];
-	io->ReadUserKeyboard(psn_online_id, sizeof(psn_online_id));
-	settings->SetPSNOnlineID(this->host, psn_online_id);
-	this->UpdateSettings();
+	bool input = io->ReadUserKeyboard(psn_online_id, sizeof(psn_online_id));
+	if(input){
+		settings->SetPSNOnlineID(this->host, psn_online_id);
+		this->UpdateSettings();
+	}
 }
 
 void SettingLayout::SetVideoResolutionCallback(ChiakiVideoResolutionPreset value){
@@ -218,6 +222,9 @@ void SettingLayout::UpdateSettings(){
 		this->host_rp_key_type_item->SetName("RP Key type: "
 			+ host_rp_key_type_string);
 	}
+	// FIXME: hack to force ReloadItemRenders
+	int s = this->setting_menu->GetSelectedIndex();
+	this->setting_menu->SetSelectedIndex(s);
 }
 
 
