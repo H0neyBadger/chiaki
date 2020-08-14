@@ -38,6 +38,8 @@ class SettingLayout : public pu::ui::Layout::Layout {
 		IO *io;
 		// display custom dialog from main app
 		std::function<void(chiaki::ui::CustomDialog::Ref)> show_custom_dialog_cb;
+		// main header title
+		pu::ui::elm::TextBlock::Ref title;
 		// default color schemes
 		pu::ui::Color menu_color;
 		pu::ui::Color menu_focus_color;

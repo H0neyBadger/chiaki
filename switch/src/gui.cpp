@@ -31,19 +31,32 @@ SettingLayout::SettingLayout(
 	// Use host == nullptr to display global settings
 	// Use the same object to display General settings
 	// and Host advanced settings
+	if(this->host == nullptr){
+		this->title = pu::ui::elm::TextBlock::New(30, 30, "Global Settings");
+	} else {
+		std::string host_name_string = settings->GetHostName(host);
+		this->title = pu::ui::elm::TextBlock::New(30, 30, host_name_string + " Settings");
+	}
+	this->title->SetFont("DefaultFont@30");
+	this->Add(this->title);
+
 
 	// default color scheme
 	this->menu_color = pu::ui::Color(224,224,224,255);
 	this->menu_focus_color = pu::ui::Color(192,192,192,255);
 	// main menu holder
+	int item_count = 5;
+	if(this->host != nullptr){
+		item_count = 10;
+	}
 	this->setting_menu = pu::ui::elm::Menu::New(0,100,1280,
-		this->menu_color, 60, 5);
+		this->menu_color, 60, item_count);
 	this->setting_menu->SetOnFocusColor(this->menu_focus_color);
 
 	// use fake string to create items
 	// text values are maintained by UpdateSettings() function
-	this->psn_account_id_item = pu::ui::elm::MenuItem::New("PSN Account ID");
-	this->psn_online_id_item = pu::ui::elm::MenuItem::New("PSN Online ID (v7.0 and greater)");
+	this->psn_online_id_item = pu::ui::elm::MenuItem::New("PSN Online ID");
+	this->psn_account_id_item = pu::ui::elm::MenuItem::New("PSN Account ID (v7.0 and greater)");
 
 	this->video_resolution_item = pu::ui::elm::MenuItem::New("Resolution");
 	this->video_fps_item = pu::ui::elm::MenuItem::New("FPS");
@@ -60,8 +73,8 @@ SettingLayout::SettingLayout(
 		this->setting_menu->AddItem(this->host_ipaddr_item);
 	}
 
-	this->setting_menu->AddItem(this->psn_account_id_item);
 	this->setting_menu->AddItem(this->psn_online_id_item);
+	this->setting_menu->AddItem(this->psn_account_id_item);
 	this->setting_menu->AddItem(this->video_resolution_item);
 	this->setting_menu->AddItem(this->video_fps_item);
 	this->setting_menu->AddItem(this->cpu_overclock_item);
@@ -177,13 +190,13 @@ void SettingLayout::UpdateSettings(){
 	this->settings->WriteFile();
 	// return global_settings ids when host == nullptr
 
-	std::string psn_account_id_string = settings->GetPSNAccountID(host);
-	this->psn_account_id_item->SetName("PSN Account ID: "
-		+ psn_account_id_string);
-
 	std::string psn_online_id_string = settings->GetPSNOnlineID(host);
-	this->psn_online_id_item->SetName("PSN Online ID (v7.0 and greater): "
+	this->psn_online_id_item->SetName("PSN Online ID: "
 		+ psn_online_id_string);
+
+	std::string psn_account_id_string = settings->GetPSNAccountID(host);
+	this->psn_account_id_item->SetName("PSN Account ID (v7.0 and greater): "
+		+ psn_account_id_string);
 
 	std::string video_resolution_string = settings->ResolutionPresetToString(
 		settings->GetVideoResolution(host));
@@ -251,13 +264,7 @@ MainLayout::MainLayout(
 		ConfigureHostFn(ConfigureHostFn){
 	// 1280 * 720
 	// upper left
-	/*
-	this->hosts = hosts;
-	this->SetHostFn = SetHostFn;
-	this->WakeupHostFn = WakeupHostFn;
-	this->ConfigureHostFn = ConfigureHostFn;
-	*/
-
+	// TODO
 	this->discover_button = chiaki::ui::ClickableImage::New(30, 30, "romfs:/discover-24px.svg");
 	this->discover_button->SetWidth(40);
 	this->discover_button->SetHeight(40);
@@ -265,6 +272,7 @@ MainLayout::MainLayout(
 	this->Add(this->discover_button);
 
 	// upper right
+	// TODO
 	this->add_button = chiaki::ui::ClickableImage::New(1160, 30, "romfs:/add-24px.svg");
 	this->add_button->SetWidth(40);
 	this->add_button->SetHeight(40);
@@ -281,8 +289,12 @@ MainLayout::MainLayout(
 		"Please turn on your PS4");
 	this->Add(this->no_host_found);
 
+	// Host color scheme
+	pu::ui::Color menu_color = pu::ui::Color(224,224,224,255);
+	pu::ui::Color menu_focus_color = pu::ui::Color(192,192,192,255);
 	this->console_menu = pu::ui::elm::Menu::New(0,100,1280,
-		pu::ui::Color(100,100,100,100), 200, (620 / 200));
+		menu_color, 200, (620 / 200));
+	this->console_menu->SetOnFocusColor(menu_focus_color);
 
 	this->Add(this->console_menu);
 	// discovery loop
@@ -430,7 +442,15 @@ void MainApplication::WakeupHostCallback(Host * host) {
 }
 
 void MainApplication::ConfigureHostCallback(Host * host) {
-	int ret = this->CreateShowDialog("Settings", "TODO", { "OK" }, true);
+	std::function<void(chiaki::ui::CustomDialog::Ref)> show_custom_dialog_cb =
+		std::bind(&MainApplication::ShowCustomDialogCallback, this, std::placeholders::_1);
+	// display host's settings
+	SettingLayout::Ref host_setting_layout = SettingLayout::New(host, this->settings, this->io, show_custom_dialog_cb);
+	host_setting_layout->SetOnInput(std::bind(&MainApplication::SettingInput, this,
+			std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
+
+	this->LoadLayout(host_setting_layout);
+	//int ret = this->CreateShowDialog("Settings", "TODO", { "OK" }, true);
 }
 
 void MainApplication::DiscoverySendCallback(Host * host) {
