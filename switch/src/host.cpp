@@ -145,7 +145,7 @@ void Host::StartSession()
 		chiaki_session_fini(&this->session);
 		throw Exception("Chiaki Session Start failed");
 	}
-	sleep(1);
+	//sleep(1);
 }
 
 void Host::SendFeedbackState(ChiakiControllerState *state){

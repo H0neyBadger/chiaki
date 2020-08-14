@@ -279,7 +279,8 @@ std::string Settings::GetHostRPKey(Host * host){
 			ChiakiErrorCode err;
 			err = chiaki_base64_encode(
 				host->rp_key, 0x10,
-				rp_key_b64, rp_key_b64_sz);
+				rp_key_b64, sizeof(rp_key_b64));
+
 			if(CHIAKI_ERR_SUCCESS == err){
 				return rp_key_b64;
 			} else {
@@ -300,7 +301,8 @@ std::string Settings::GetHostRPRegistKey(Host * host){
 			ChiakiErrorCode err;
 			err = chiaki_base64_encode(
 				(uint8_t *) host->rp_regist_key, CHIAKI_SESSION_AUTH_SIZE,
-				rp_regist_key_b64, rp_regist_key_b64_sz);
+				rp_regist_key_b64, sizeof(rp_regist_key_b64));
+
 			if(CHIAKI_ERR_SUCCESS == err){
 				return rp_regist_key_b64;
 			} else {
@@ -446,6 +448,7 @@ int Settings::WriteFile(){
 
 	if(config_file.is_open()){
 		// save global settings
+		CHIAKI_LOGD(this->log, "Write Global config file %s", this->filename);
 
 		if(this->global_video_resolution){
 			config_file << "video_resolution = \""
@@ -476,6 +479,8 @@ int Settings::WriteFile(){
 		for( auto it = this->hosts->begin(); it != this->hosts->end(); it++ ){
 			// first is std::string
 			// second is Host
+			CHIAKI_LOGD(this->log, "Write Host config file %s", it->first.c_str());
+
 			config_file << "[" << it->first << "]\n"
 				<< "host_ip = \"" << it->second.host_addr << "\"\n";
 

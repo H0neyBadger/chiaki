@@ -228,16 +228,16 @@ void SettingLayout::UpdateSettings(){
 			+ host_rp_regist_key_string);
 
 		std::string host_rp_key_string = settings->GetHostRPKey(host);
-		this->host_rp_regist_key_item->SetName("RP Key: "
-			+ host_rp_regist_key_string);
+		this->host_rp_key_item->SetName("RP Key: "
+			+ host_rp_key_string);
 
 		std::string host_rp_key_type_string = std::to_string(settings->GetHostRPKeyType(host));
 		this->host_rp_key_type_item->SetName("RP Key type: "
 			+ host_rp_key_type_string);
 	}
 	// FIXME: hack to force ReloadItemRenders
-	int s = this->setting_menu->GetSelectedIndex();
-	this->setting_menu->SetSelectedIndex(s);
+	int idx = this->setting_menu->GetSelectedIndex();
+	this->setting_menu->SetSelectedIndex(idx);
 }
 
 
@@ -326,6 +326,9 @@ bool MainLayout::UpdateOrCreateHostMenuItem(Host * host){
 		this->host_menuitems[host->host_name]->SetName(text);
 		ret = true;
 	}
+	// FIXME: hack to force ReloadItemRenders
+	int idx = this->console_menu->GetSelectedIndex();
+	this->console_menu->SetSelectedIndex(idx);
 	return ret;
 }
 
@@ -400,29 +403,40 @@ void MainApplication::SetHostCallback(Host * host) {
 	this->host = host;
 	char pin_input[9];
 	int retry = 0;
-
+	bool pin_provided = false;
 	if(host->state != CHIAKI_DISCOVERY_HOST_STATE_READY) {
 		// host in standby mode
 		this->CreateShowDialog("Failed to initiate session", "Please turn on your PS4", { "OK" }, true);
+		return;
 	} else if(!host->rp_key_data) {
 		// the host is not registered yet
 		this->CreateShowDialog("Initiate session", "Please enter PS4 registration PIN code", { "OK" }, true);
 		// spawn keyboard
 		while(retry == 0){
-			io->ReadUserKeyboard(pin_input, sizeof(pin_input));
-			host->Register(pin_input);
-			// FIXME
-			sleep(1);
-			if(!host->rp_key_data || !host->registered){
-				// registration success
-				retry = this->CreateShowDialog("Session Registration Failed", "Please verify your PS4 settings", { "Retry", "Cancel" }, true);
+			pin_provided = io->ReadUserKeyboard(pin_input, sizeof(pin_input));
+			if(pin_provided){
+				host->Register(pin_input);
+				// FIXME: register is asynchronous
+				sleep(1);
+				if(!host->rp_key_data || !host->registered){
+					// registration success
+					retry = this->CreateShowDialog("Session Registration Failed", "Please verify your PS4 settings", { "Retry", "Cancel" }, true);
+				} else {
+					// save registration and session key
+					this->settings->WriteFile();
+					break;
+				}
 			} else {
-				break;
+				// the user canceled/left
+				// the pin code keyboard input
+				return;
 			}
 		}
 	}
+
 	if(host->rp_key_data) {
 		host->ConnectSession(this->io);
+		host->StartSession();
 		this->Close();
 	}
 }

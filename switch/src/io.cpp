@@ -709,7 +709,6 @@ inline void IO::OpenGlDraw() {
 
 bool IO::InitSDLTextures() {
 	// https://github.com/raullalves/player-cpp-ffmpeg-sdl/blob/master/Player.cpp
-	printf("renderer %p\n", this->renderer);
 	if(!this->renderer){
 		this->renderer = SDL_CreateRenderer(this->sdl_window, -1, SDL_RENDERER_ACCELERATED);
 		if (!this->renderer) {

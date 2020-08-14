@@ -31,10 +31,6 @@
 #include "gui.h"
 #endif
 
-// max                   1785000000
-#define SWITCH_OVERCLOCK 1326000000
-// #define SWITCH_OVERCLOCK 1220000000
-// #define SWITCH_OVERCLOCK 1020000000
 #define SCREEN_W 1280
 #define SCREEN_H 720
 
@@ -178,12 +174,6 @@ int main(int argc, char* argv[]){
 	    plutonium_app->Show();
 		// retrieve ps4 gui host ptr
 		host = plutonium_app->GetHost();
-		/*
-		io.SetSDLWindow(pu::ui::render::GetMainWindow());
-		io.SetSDLRenderer(pu::ui::render::GetMainRenderer());
-		*/
-		printf("bye");
-		return 0;
 #else
 		// wait for discoverymanager
 		sleep(1);
@@ -224,7 +214,6 @@ int main(int argc, char* argv[]){
 		// run stream session thread
 		CHIAKI_LOGI(&log, "Start Session");
 		host->StartSession();
-		sleep(1);
 
 #endif
 		// destroy discoverymanager
@@ -259,11 +248,14 @@ int main(int argc, char* argv[]){
 	ChiakiControllerState state = { 0 };
 
 #ifdef __SWITCH__
-	CHIAKI_LOGI(&log, "Overclock Nintendo Switch to SWITCH_OVERCLOCK = %d", SWITCH_OVERCLOCK);
+	// FIXME: Overclock is not recommended for a long period of play
+	// we have to fix this issue as fast as possible
+	int cpu_overclock =  settings.GetCPUOverclock(host);
+	CHIAKI_LOGI(&log, "Overclock Nintendo Switch to SWITCH_OVERCLOCK = %d", cpu_overclock);
 	ClkrstSession cpuSession;
 	clkrstInitialize();
 	clkrstOpenSession(&cpuSession, PcvModuleId_CpuBus, 3);
-	clkrstSetClockRate(&cpuSession, SWITCH_OVERCLOCK);
+	clkrstSetClockRate(&cpuSession, cpu_overclock);
 #endif
 	int video_width = 0;
 	int video_height = 0;

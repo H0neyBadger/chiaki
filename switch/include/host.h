@@ -51,15 +51,15 @@ class Host
 		ChiakiLog *log = NULL;
 		//video config
 		ChiakiVideoResolutionPreset video_resolution = CHIAKI_VIDEO_RESOLUTION_PRESET_720p;
-		ChiakiVideoFPSPreset video_fps = CHIAKI_VIDEO_FPS_PRESET_30;
+		ChiakiVideoFPSPreset video_fps = CHIAKI_VIDEO_FPS_PRESET_60;
 		int cpu_overclock = OC_1326;
 		// info from discovery manager
-		int system_version;
-		int device_discovery_protocol_version;
+		int system_version = 0;
+		int device_discovery_protocol_version = 0;
 		std::string host_type;
 		// user info
-		std::string psn_online_id;
-		std::string psn_account_id;
+		std::string psn_online_id = "";
+		std::string psn_account_id = "";
 		// info from regist/settings
 		std::string ap_ssid;
 		std::string ap_bssid;
@@ -67,10 +67,10 @@ class Host
 		std::string ap_name;
 		std::string ps4_nickname;
 		// mac address = 48 bits
-		uint8_t ps4_mac[6];
-		char rp_regist_key[CHIAKI_SESSION_AUTH_SIZE];
-		uint32_t rp_key_type;
-		uint8_t rp_key[0x10];
+		uint8_t ps4_mac[6] = {0};
+		char rp_regist_key[CHIAKI_SESSION_AUTH_SIZE] = {0};
+		uint32_t rp_key_type = 0;
+		uint8_t rp_key[0x10] = {0};
 		// manage stream session
 		ChiakiSession session;
 		ChiakiOpusDecoder opus_decoder;
@@ -86,6 +86,7 @@ class Host
 		// rp_key_data is true when rp_key, rp_regist_key, rp_key_type
 		bool rp_key_data = false;
 		std::string host_name;
+		// sony's host_id == mac addr without colon
 		std::string host_id;
 		std::string host_addr;
 		// share picture frame

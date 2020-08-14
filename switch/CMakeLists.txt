@@ -7,6 +7,8 @@ find_library(SDL2_TTF SDL2_ttf)
 find_library(AVCODEC avcodec)
 find_library(AVUTIL avutil)
 find_library(SWSCALE swscale)
+find_library(VPX vpx)
+find_library(SWRESAMPLE swresample)
 
 if(CHIAKI_SWITCH_ENABLE_LINUX AND CHIAKI_SWITCH_ENABLE_OPENGL)
 	set(RESOURCE_FILES src/glad.c)
@@ -31,7 +33,7 @@ target_include_directories(chiaki PRIVATE include)
 
 # WARNING lib order matter
 target_link_libraries(chiaki chiaki-lib)
-target_link_libraries(chiaki ${SDL2} ${AVCODEC} ${AVUTIL})
+target_link_libraries(chiaki ${SDL2} ${AVCODEC} ${AVUTIL} ${VPX} ${SWRESAMPLE})
 if(CHIAKI_SWITCH_ENABLE_OPENGL)
 	add_definitions(-DCHIAKI_SWITCH_ENABLE_OPENGL)
 	if(CHIAKI_SWITCH_ENABLE_LINUX)
