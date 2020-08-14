@@ -33,12 +33,11 @@ static void Discovery(ChiakiDiscoveryHost *discovered_host, void *user){
 }
 
 
-DiscoveryManager::DiscoveryManager(ChiakiLog* log, std::map<std::string, Host> *hosts):
-	        log(log),
-            hosts(hosts),
+DiscoveryManager::DiscoveryManager(Settings *settings):
+	        settings(settings),
             host_addr(nullptr),
             host_addr_len(0){
-
+	this->log = this->settings->GetLogger();
 	ChiakiErrorCode err = chiaki_discovery_init(&this->discovery, this->log, AF_INET);
 	if(err != CHIAKI_ERR_SUCCESS)
 	{
@@ -120,7 +119,7 @@ int DiscoveryManager::Send(){
 			NULL, NULL, NULL);
         nifmExit();
     } else {
-		CHIAKI_LOGE(log, "Failed to get nintendo nifmGetCurrentIpConfigInfo");
+		CHIAKI_LOGE(this->log, "Failed to get nintendo nifmGetCurrentIpConfigInfo");
 		return 1;
 	}
 
@@ -133,7 +132,7 @@ int DiscoveryManager::Send(){
 	this->host_addr = (struct sockaddr *)malloc(host_addr_len);
 	memcpy(this->host_addr, &addr, this->host_addr_len);
 
-	CHIAKI_LOGI(log, "Read current addr `%p` mask `%p` broadcast `%p`\n",
+	CHIAKI_LOGI(this->log, "Read current addr `%p` mask `%p` broadcast `%p`\n",
 		ntohl(current_addr), ntohl(subnet_mask), ntohl(current_addr | (~subnet_mask)));
 	return DiscoveryManager::Send(this->host_addr, this->host_addr_len);
 #else
@@ -141,15 +140,6 @@ int DiscoveryManager::Send(){
 #endif
 }
 
-Host* DiscoveryManager::GetHost(std::string ps4_nickname){
-	auto it = hosts->find(ps4_nickname);
-	if (it != hosts->end()){
-		return &(hosts->at(ps4_nickname));
-	} else {
-		// object not found
-		return 0;
-	}
-}
 
 void DiscoveryManager::DiscoveryCB(ChiakiDiscoveryHost *discovered_host){
 
@@ -157,7 +147,7 @@ void DiscoveryManager::DiscoveryCB(ChiakiDiscoveryHost *discovered_host){
 	// chiaki_discovery_thread_start arg
 
 	std::string key = discovered_host->host_name;
-	Host *host = Host::GetOrCreate(this->log, hosts, &key);
+	Host *host = this->settings->GetOrCreateHost(&key);
 
 	CHIAKI_LOGI(this->log, "--");
 	CHIAKI_LOGI(this->log, "Discovered Host:");
@@ -190,7 +180,6 @@ void DiscoveryManager::DiscoveryCB(ChiakiDiscoveryHost *discovered_host){
 		CHIAKI_LOGI(this->log, "Host Addr:                         %s", discovered_host->host_addr);
 
 	if(discovered_host->host_name)
-		// FIXME
 		host->host_name = discovered_host->host_name;
 		CHIAKI_LOGI(this->log, "Host Name:                         %s", discovered_host->host_name);
 

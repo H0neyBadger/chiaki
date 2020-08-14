@@ -70,6 +70,8 @@ class Settings {
 		size_t GetB64encodeSize(size_t);
 	public:
 		Settings(ChiakiLog * log, std::map<std::string, Host> *hosts): log(log), hosts(hosts){};
+		Host * GetOrCreateHost(std::string *host_name);
+		ChiakiLog* GetLogger();
 		std::string GetPSNOnlineID(Host * host);
 		std::string GetPSNAccountID(Host * host);
 		void SetPSNOnlineID(Host * host, std::string psn_online_id);

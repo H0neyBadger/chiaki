@@ -149,7 +149,7 @@ int main(int argc, char* argv[]){
 	Host * host = nullptr;
 	// create sub context to destroy discoverymanager
 	{
-		DiscoveryManager discoverymanager = DiscoveryManager(&log, &hosts);
+		DiscoveryManager discoverymanager = DiscoveryManager(&settings);
 		CHIAKI_LOGI(&log, "Call Discover");
 		int d = discoverymanager.Send();
 #ifdef __SWITCH__

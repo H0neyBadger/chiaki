@@ -441,6 +441,7 @@ void MainApplication::SetHostCallback(Host * host) {
 	}
 }
 
+
 void MainApplication::WakeupHostCallback(Host * host) {
 	if(!host->rp_key_data) {
 		// the host is not registered yet

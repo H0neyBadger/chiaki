@@ -19,13 +19,28 @@
 #include <chiaki/base64.h>
 #include "settings.h"
 
-/*
-// default settings
-static std::string ipaddr = "255.255.255.255";
-static ChiakiVideoResolutionPreset resolution = CHIAKI_VIDEO_RESOLUTION_PRESET_720p;
-static ChiakiVideoFPSPreset fps = CHIAKI_VIDEO_FPS_PRESET_30;
-static int overclock = 1326000000;
-*/
+Host * Settings::GetOrCreateHost(std::string *host_name){
+	bool created = false;
+    // update of create Host instance
+    if ( this->hosts->find(*host_name) == hosts->end() ) {
+        // create host if udefined
+        (*this->hosts)[*host_name] = Host(this->log);
+		created = true;
+    }
+    Host *host = &(this->hosts->at(*host_name));
+    host->host_name = *host_name;
+	if(created){
+		// copy default settings
+		// to the newly created host
+		this->SetPSNOnlineID(host, this->global_psn_online_id);
+		this->SetPSNAccountID(host, this->global_psn_account_id);
+		this->SetCPUOverclock(host, this->global_cpu_overclock);
+		this->SetVideoResolution(host, this->global_video_resolution);
+		this->SetVideoFPS(host, this->global_video_fps);
+	}
+    return host;
+}
+
 
 Settings::ConfigurationItem Settings::ParseLine(std::string *line, std::string *value){
 	Settings::ConfigurationItem ci;
@@ -39,6 +54,10 @@ Settings::ConfigurationItem Settings::ParseLine(std::string *line, std::string *
 		}
 	}
 	return UNKNOWN;
+}
+
+ChiakiLog* Settings::GetLogger(){
+	return this->log;
 }
 
 size_t Settings::GetB64encodeSize(size_t in){
@@ -370,7 +389,7 @@ void Settings::ParseFile(){
 				case HOST_NAME:
 					CHIAKI_LOGV(this->log, "HOST_NAME %s", value.c_str());
 					// current host is in context
-					current_host = Host::GetOrCreate(this->log, this->hosts, &value);
+					current_host = this->GetOrCreateHost(&value);
 					// all following case will edit the current_host config
 					break;
 				case HOST_IP:

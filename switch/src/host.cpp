@@ -43,17 +43,6 @@ static void Audio(int16_t * buf, size_t samples_count, void * user){
     io->AudioCB(buf, samples_count);
 }
 
-Host * Host::GetOrCreate(ChiakiLog *log, std::map<std::string, Host> *hosts, std::string *key){
-    // update of create Host instance
-    if ( hosts->find(*key) == hosts->end() ) {
-        // create host if udefined
-        (*hosts)[*key] = Host(log);
-    }
-    Host *ret = &(hosts->at(*key));
-    ret->host_name = *key;
-    return ret;
-}
-
 int Host::Wakeup()
 {
 	if(strlen(this->rp_regist_key) > 8)
