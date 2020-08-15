@@ -500,6 +500,15 @@ bool IO::InitAVCodec(){
 	if(!this->codec_context)
 		throw Exception("Failed to alloc codec context");
 
+	// use rock88's mooxlight-nx optimization
+	// https://github.com/rock88/moonlight-nx/blob/698d138b9fdd4e483c998254484ccfb4ec829e95/src/streaming/ffmpeg/FFmpegVideoDecoder.cpp#L63
+	// this->codec_context->skip_loop_filter = AVDISCARD_ALL;
+	this->codec_context->flags |= AV_CODEC_FLAG_LOW_DELAY;
+	this->codec_context->flags2 |= AV_CODEC_FLAG2_FAST;
+	// this->codec_contex-t>flags2 |= AV_CODEC_FLAG2_CHUNKS;
+	this->codec_context->thread_type = FF_THREAD_SLICE;
+	this->codec_context->thread_count = 4;
+
 	if(avcodec_open2(this->codec_context, this->codec, nullptr) < 0)
 	{
 		avcodec_free_context(&this->codec_context);
