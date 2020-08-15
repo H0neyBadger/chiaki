@@ -60,7 +60,9 @@ SettingLayout::SettingLayout(
 
 	this->video_resolution_item = pu::ui::elm::MenuItem::New("Resolution");
 	this->video_fps_item = pu::ui::elm::MenuItem::New("FPS");
+#ifdef CHIAKI_ENABLE_SWITCH_OVERCLOCK
 	this->cpu_overclock_item = pu::ui::elm::MenuItem::New("Overclock");
+#endif
 	this->host_ipaddr_item = pu::ui::elm::MenuItem::New("PS4 IP Address");
 	this->host_name_item = pu::ui::elm::MenuItem::New("PS4 Hostname");
 	this->host_rp_regist_key_item = pu::ui::elm::MenuItem::New("PS4 RP Register Key");
@@ -77,8 +79,9 @@ SettingLayout::SettingLayout(
 	this->setting_menu->AddItem(this->psn_account_id_item);
 	this->setting_menu->AddItem(this->video_resolution_item);
 	this->setting_menu->AddItem(this->video_fps_item);
+#ifdef CHIAKI_ENABLE_SWITCH_OVERCLOCK
 	this->setting_menu->AddItem(this->cpu_overclock_item);
-
+#endif
 	if(this->host != nullptr){
 		this->setting_menu->AddItem(this->host_rp_regist_key_item);
 		this->setting_menu->AddItem(this->host_rp_key_type_item);
@@ -115,7 +118,7 @@ SettingLayout::SettingLayout(
 	this->video_fps_menu->AddItem(this->video_fps_30);
 	this->video_fps_dialog = chiaki::ui::CustomDialog::New("Video",
 		"FPS", this->video_fps_menu);
-
+#ifdef CHIAKI_ENABLE_SWITCH_OVERCLOCK
 	this->cpu_overclock_menu = pu::ui::elm::Menu::New(x,y,width,
 		this->menu_color, item_size, 5);
 	this->cpu_overclock_menu->SetOnFocusColor(this->menu_focus_color);
@@ -136,6 +139,7 @@ SettingLayout::SettingLayout(
 	this->cpu_overclock_menu->AddItem(this->cpu_oc_1020);
 	this->cpu_overclock_dialog = chiaki::ui::CustomDialog::New("CPU",
 		"OverClock", this->cpu_overclock_menu);
+#endif
 
 	// build call back/action system
 
@@ -144,7 +148,9 @@ SettingLayout::SettingLayout(
 
 	this->video_resolution_item->AddOnClick(std::bind(show_custom_dialog_cb, this->video_resolution_dialog));
 	this->video_fps_item->AddOnClick(std::bind(show_custom_dialog_cb, this->video_fps_dialog));
+#ifdef CHIAKI_ENABLE_SWITCH_OVERCLOCK
 	this->cpu_overclock_item->AddOnClick(std::bind(show_custom_dialog_cb, this->cpu_overclock_dialog));
+#endif
 	// this->host_ipaddr_item->AddOnClick(std::function< void()> Callback, u64 Key=KEY_A);
 
 	// Update string info
@@ -179,10 +185,12 @@ void SettingLayout::SetVideoFPSCallback(ChiakiVideoFPSPreset value){
 	this->UpdateSettings();
 }
 
+#ifdef CHIAKI_ENABLE_SWITCH_OVERCLOCK
 void SettingLayout::SetCPUOverclockCallback(int cpu_overclock){
 	settings->SetCPUOverclock(this->host, cpu_overclock);
 	this->UpdateSettings();
 }
+#endif
 
 // synchronize settings on disk and gui
 void SettingLayout::UpdateSettings(){
@@ -210,9 +218,11 @@ void SettingLayout::UpdateSettings(){
 	this->video_fps_item->SetName("Video FPS: "
 		+ video_fps_string);
 
+#ifdef CHIAKI_ENABLE_SWITCH_OVERCLOCK
 	std::string cpu_overclock_string = std::to_string(settings->GetCPUOverclock(host));
 	this->cpu_overclock_item->SetName("CPU Overclock: "
 		+ cpu_overclock_string);
+#endif
 
 	if(this->host != nullptr){
 		std::string host_name_string = settings->GetHostName(host);

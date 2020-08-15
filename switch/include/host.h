@@ -31,12 +31,13 @@
 #include "exception.h"
 #include "io.h"
 
+#ifdef CHIAKI_ENABLE_SWITCH_OVERCLOCK
 #define OC_1785 1785000000
 #define OC_1580 1580000000
 #define OC_1326 1326000000
 #define OC_1220 1220000000
 #define OC_1020 1020000000
-
+#endif
 
 class DiscoveryManager;
 static void Discovery(ChiakiDiscoveryHost*, void*);
@@ -52,7 +53,9 @@ class Host
 		//video config
 		ChiakiVideoResolutionPreset video_resolution = CHIAKI_VIDEO_RESOLUTION_PRESET_720p;
 		ChiakiVideoFPSPreset video_fps = CHIAKI_VIDEO_FPS_PRESET_60;
+#ifdef CHIAKI_ENABLE_SWITCH_OVERCLOCK
 		int cpu_overclock = OC_1326;
+#endif
 		// info from discovery manager
 		int system_version = 0;
 		int device_discovery_protocol_version = 0;

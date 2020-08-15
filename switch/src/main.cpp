@@ -103,7 +103,7 @@ extern "C" void userAppExit()
 #ifdef CHIAKI_ENABLE_SWITCH_NXLINK
 	deinitNxLink();
 #endif
-	//reset OC
+#ifdef CHIAKI_ENABLE_SWITCH_OVERCLOCK
 	ClkrstSession cpuSession;
 	clkrstInitialize();
     clkrstOpenSession(&cpuSession, PcvModuleId_CpuBus, 3);
@@ -111,6 +111,7 @@ extern "C" void userAppExit()
     clkrstSetClockRate(&cpuSession, 1020000000);
 	clkrstCloseSession(&cpuSession);
 	clkrstExit();
+#endif
 }
 #endif
 
@@ -247,7 +248,7 @@ int main(int argc, char* argv[]){
 	// store joycon keys
 	ChiakiControllerState state = { 0 };
 
-#ifdef __SWITCH__
+#if defined(__SWITCH__) && defined(CHIAKI_ENABLE_SWITCH_OVERCLOCK)
 	// FIXME: Overclock is not recommended for a long period of play
 	// we have to fix this issue as fast as possible
 	int cpu_overclock =  settings.GetCPUOverclock(host);
@@ -267,7 +268,7 @@ int main(int argc, char* argv[]){
 	{
         host->SendFeedbackState(&state);
 	}
-#ifdef __SWITCH__
+#if defined(__SWITCH__) && defined(CHIAKI_ENABLE_SWITCH_OVERCLOCK)
 	clkrstCloseSession(&cpuSession); //end OC
 	clkrstExit();
 #endif

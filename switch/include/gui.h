@@ -50,7 +50,9 @@ class SettingLayout : public pu::ui::Layout::Layout {
 		pu::ui::elm::MenuItem::Ref psn_online_id_item;
 		pu::ui::elm::MenuItem::Ref video_resolution_item;
 		pu::ui::elm::MenuItem::Ref video_fps_item;
+#ifdef CHIAKI_ENABLE_SWITCH_OVERCLOCK
 		pu::ui::elm::MenuItem::Ref cpu_overclock_item;
+#endif
 		// host specific settings
 		pu::ui::elm::MenuItem::Ref host_name_item;
 		pu::ui::elm::MenuItem::Ref host_ipaddr_item;
@@ -61,10 +63,12 @@ class SettingLayout : public pu::ui::Layout::Layout {
 		// nested menu (menu in menu with custom dialog)
 		pu::ui::elm::Menu::Ref video_resolution_menu;
 		pu::ui::elm::Menu::Ref video_fps_menu;
+#ifdef CHIAKI_ENABLE_SWITCH_OVERCLOCK
 		pu::ui::elm::Menu::Ref cpu_overclock_menu;
+		chiaki::ui::CustomDialog::Ref cpu_overclock_dialog;
+#endif
 		chiaki::ui::CustomDialog::Ref video_resolution_dialog;
 		chiaki::ui::CustomDialog::Ref video_fps_dialog;
-		chiaki::ui::CustomDialog::Ref cpu_overclock_dialog;
 
 		// resolution choice items
 		pu::ui::elm::MenuItem::Ref video_res_720p;
@@ -73,18 +77,21 @@ class SettingLayout : public pu::ui::Layout::Layout {
 		// FPS choice items
 		pu::ui::elm::MenuItem::Ref video_fps_60;
 		pu::ui::elm::MenuItem::Ref video_fps_30;
+#ifdef CHIAKI_ENABLE_SWITCH_OVERCLOCK
 		// overclock choices
 		pu::ui::elm::MenuItem::Ref cpu_oc_1785;
 		pu::ui::elm::MenuItem::Ref cpu_oc_1580;
 		pu::ui::elm::MenuItem::Ref cpu_oc_1326;
 		pu::ui::elm::MenuItem::Ref cpu_oc_1220;
 		pu::ui::elm::MenuItem::Ref cpu_oc_1020;
-
+#endif
 		void SetPSNAccountIDCallback();
 		void SetPSNOnlineIDCallback();
 		void SetVideoResolutionCallback(ChiakiVideoResolutionPreset value);
 		void SetVideoFPSCallback(ChiakiVideoFPSPreset value);
+#ifdef CHIAKI_ENABLE_SWITCH_OVERCLOCK
 		void SetCPUOverclockCallback(int cpu_overclock);
+#endif
 
 	public:
 		SettingLayout(Host * host, Settings *settings, IO *io,

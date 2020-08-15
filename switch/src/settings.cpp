@@ -34,7 +34,9 @@ Host * Settings::GetOrCreateHost(std::string *host_name){
 		// to the newly created host
 		this->SetPSNOnlineID(host, this->global_psn_online_id);
 		this->SetPSNAccountID(host, this->global_psn_account_id);
+#ifdef CHIAKI_ENABLE_SWITCH_OVERCLOCK
 		this->SetCPUOverclock(host, this->global_cpu_overclock);
+#endif
 		this->SetVideoResolution(host, this->global_video_resolution);
 		this->SetVideoFPS(host, this->global_video_fps);
 	}
@@ -218,6 +220,7 @@ void Settings::SetVideoFPS(Host * host, std::string value){
 	this->SetVideoFPS(host, p);
 }
 
+#ifdef CHIAKI_ENABLE_SWITCH_OVERCLOCK
 int Settings::GetCPUOverclock(Host * host){
 	if(host == nullptr){
 		return this->global_cpu_overclock;
@@ -253,6 +256,7 @@ void Settings::SetCPUOverclock(Host * host, std::string value){
 	int v = atoi(value.c_str());
 	this->SetCPUOverclock(host, v);
 }
+#endif
 
 std::string Settings::GetHostIPAddr(Host * host){
 	if(host != nullptr){
@@ -438,9 +442,11 @@ void Settings::ParseFile(){
 				case VIDEO_FPS:
 					this->SetVideoFPS(current_host, value);
 					break;
+#ifdef CHIAKI_ENABLE_SWITCH_OVERCLOCK
 				case CPU_OVERCLOCK:
 					this->SetCPUOverclock(current_host, value);
 					break;
+#endif
 			} // ci switch
 			if(rp_key_b && rp_regist_key_b && rp_key_type_b){
 				// the current host contains rp key data
@@ -481,9 +487,11 @@ int Settings::WriteFile(){
 				<< "\n";
 		}
 
+#ifdef CHIAKI_ENABLE_SWITCH_OVERCLOCK
 		if(this->global_cpu_overclock > 0){
 			config_file << "cpu_overclock = " << this->global_cpu_overclock << "\n";
 		}
+#endif
 
 		if(this->global_psn_online_id.length()){
 			config_file << "psn_online_id = \"" << this->global_psn_online_id << "\"\n";
@@ -515,9 +523,11 @@ int Settings::WriteFile(){
 					<< "\n";
 			}
 
+#ifdef CHIAKI_ENABLE_SWITCH_OVERCLOCK
 			if(it->second.cpu_overclock > 0){
 				config_file << "cpu_overclock = " << it->second.cpu_overclock << "\n";
 			}
+#endif
 
 			if(it->second.psn_online_id.length()){
 				config_file << "psn_online_id = \"" << it->second.psn_online_id << "\"\n";
