@@ -245,8 +245,12 @@ int main(int argc, char* argv[]){
 		CHIAKI_LOGI(&log, "Faled to initiate Joysticks");
 	}
 
-	// store joycon keys
+	// store joycon/touchpad keys
 	ChiakiControllerState state = { 0 };
+	for(int x=0; x < CHIAKI_CONTROLLER_TOUCHES_MAX; x++){
+		// start touchpad as "untouched"
+		state.touches[x].id = -1;
+	}
 
 #if defined(__SWITCH__) && defined(CHIAKI_ENABLE_SWITCH_OVERCLOCK)
 	// FIXME: Overclock is not recommended for a long period of play

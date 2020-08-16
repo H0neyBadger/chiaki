@@ -347,8 +347,6 @@ bool IO::ReadGameKeys(SDL_Event *event, ChiakiControllerState *state){
     // return true if an event changed (gamepad input)
 
 	// TODO
-	// touchpad touchscreen
-	// touchpad button zones
 	// share vs PS button
 	// Gyro ?
 	// rumble ?
@@ -442,11 +440,39 @@ bool IO::ReadGameKeys(SDL_Event *event, ChiakiControllerState *state){
 			}
 			break;
 		case SDL_FINGERDOWN:
-            state->buttons |= CHIAKI_CONTROLLER_BUTTON_TOUCHPAD; // touchscreen
-            break;
-        case SDL_FINGERUP:
-            state->buttons ^= CHIAKI_CONTROLLER_BUTTON_TOUCHPAD; // touchscreen
-            break;
+			// use nintendo switch border's 5% to
+			if(event->tfinger.y <= 0.05 || event->tfinger.y >= 0.95
+				|| event->tfinger.x <= 0.05 || event->tfinger.x >= 0.95) {
+				state->buttons |= CHIAKI_CONTROLLER_BUTTON_TOUCHPAD; // touchscreen
+			}
+			break;
+		case SDL_FINGERMOTION:
+			{
+				// allow multitouch
+				int t = event->tfinger.fingerId % CHIAKI_CONTROLLER_TOUCHES_MAX;
+				// event->tfinger.x returns float 0 <= x <= 1
+				// use * 1000 + 5% allocated to trigger
+				// touchpad button push
+				state->touches[t].x = event->tfinger.x * 1050;
+				state->touches[t].y = event->tfinger.y * 1050;
+				state->touches[t].id = event->tfinger.fingerId;
+				/*
+				printf("touch : %f x %f, id %d, t%d\n",
+					event->tfinger.x, event->tfinger.y, state->touches[t].id, t);
+				*/
+			}
+			break;
+		case SDL_FINGERUP:
+			{
+				int t = event->tfinger.fingerId % CHIAKI_CONTROLLER_TOUCHES_MAX;
+				state->touches[t].x = 0;
+				state->touches[t].y = 0;
+				state->touches[t].id = -1;
+				// do not use xor here
+				// to avoid to set the value if it's not defined yet
+		 		state->buttons &= ~CHIAKI_CONTROLLER_BUTTON_TOUCHPAD; // touchscreen release
+			}
+			break;
 		default:
 			ret = false;
 		}
