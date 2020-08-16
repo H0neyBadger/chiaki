@@ -6,6 +6,6 @@ docker run \
 	-v "`pwd`:/build/chiaki" \
 	-w "/build/chiaki" \
 	-t \
-	thestr4ng3r/chiaki-build-switch \
+	h0neybadger/chiaki-build-switch \
 	-c "scripts/switch/build.sh"
 
