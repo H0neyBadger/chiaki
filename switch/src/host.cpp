@@ -23,24 +23,31 @@
 #include "io.h"
 #include "host.h"
 
-static void Regist(ChiakiRegistEvent *event, void *user){
-	Host *host = (Host*) user;
-	host->RegistCB(event);
-}
 
-static void InitAudio(unsigned int channels, unsigned int rate, void * user){
+
+static void InitAudioCB(unsigned int channels, unsigned int rate, void * user){
     IO *io = (IO*) user;
     io->InitAudioCB(channels, rate);
 }
 
-static bool Video(uint8_t * buf, size_t buf_size, void * user){
+static bool VideoCB(uint8_t * buf, size_t buf_size, void * user){
     IO *io = (IO*) user;
     return io->VideoCB(buf, buf_size);
 }
 
-static void Audio(int16_t * buf, size_t samples_count, void * user){
+static void AudioCB(int16_t * buf, size_t samples_count, void * user){
     IO *io = (IO*) user;
     io->AudioCB(buf, samples_count);
+}
+
+static void EventCB(ChiakiEvent *event, void * user){
+    IO *io = (IO*) user;
+    io->EventCB(event);
+}
+
+static void RegistEventCB(ChiakiRegistEvent *event, void *user){
+	Host *host = (Host*) user;
+	host->RegistCB(event);
 }
 
 int Host::Wakeup()
@@ -58,15 +65,13 @@ int Host::Wakeup()
 	ChiakiErrorCode ret = chiaki_discovery_wakeup(this->log, NULL, host_addr.c_str(), credential);
 	if(ret == CHIAKI_ERR_SUCCESS){
 		//FIXME
-		//sleep(1);
 	}
 	return ret;
 }
 
 int Host::Register(std::string pin){
 	// use pin and accont_id to negociate secrets for session
-	ChiakiRegist regist = {};
-	ChiakiRegistInfo regist_info = { 0 };
+	//
 	// convert psn_account_id into uint8_t[CHIAKI_PSN_ACCOUNT_ID_SIZE]
 	// CHIAKI_PSN_ACCOUNT_ID_SIZE == 8
 	size_t psn_account_id_size = sizeof(uint8_t[CHIAKI_PSN_ACCOUNT_ID_SIZE]);
@@ -83,16 +88,12 @@ int Host::Register(std::string pin){
 	} else {
 		CHIAKI_LOGE(this->log, "Undefined PS4 system version (please run discover first)");
 	}
-	regist_info.pin = atoi(pin.c_str());
-	regist_info.host = this->host_addr.c_str();
-	regist_info.broadcast = false;
+	this->regist_info.pin = atoi(pin.c_str());
+	this->regist_info.host = this->host_addr.c_str();
+	this->regist_info.broadcast = false;
 	CHIAKI_LOGI(this->log, "Registering to host `%s` `%s` with PSN AccountID `%s` pin `%s`",
 		this->host_name.c_str(), this->host_addr.c_str(), psn_account_id.c_str(), pin.c_str());
-	chiaki_regist_start(&regist, this->log, &regist_info, Regist, this);
-	//FIXME poll host->registered
-	sleep(1);
-	chiaki_regist_stop(&regist);
-	chiaki_regist_fini(&regist);
+	chiaki_regist_start(&this->regist, this->log, &this->regist_info, RegistEventCB, this);
 	return 0;
 }
 
@@ -107,9 +108,7 @@ int Host::ConnectSession(IO * user) {
 	chiaki_connect_info.host = this->host_addr.c_str();
 	chiaki_connect_info.video_profile = this->video_profile;
 	memcpy(chiaki_connect_info.regist_key, this->rp_regist_key, sizeof(chiaki_connect_info.regist_key));
-
 	memcpy(chiaki_connect_info.morning, this->rp_key, sizeof(chiaki_connect_info.morning));
-
 	// set keybord state to 0
 	memset(&(this->keyboard_state), 0, sizeof(keyboard_state));
 
@@ -117,12 +116,11 @@ int Host::ConnectSession(IO * user) {
 	if(err != CHIAKI_ERR_SUCCESS)
 		throw Exception(chiaki_error_string(err));
 	// audio setting_cb and frame_cb
-	chiaki_opus_decoder_set_cb(&this->opus_decoder, InitAudio, Audio, user);
+	chiaki_opus_decoder_set_cb(&this->opus_decoder, InitAudioCB, AudioCB, user);
 	chiaki_opus_decoder_get_sink(&this->opus_decoder, &audio_sink);
 	chiaki_session_set_audio_sink(&(this->session), &audio_sink);
-	chiaki_session_set_video_sample_cb(&(this->session), Video, user);
-	// TODO
-	chiaki_session_set_event_cb(&(this->session), NULL, user);
+	chiaki_session_set_video_sample_cb(&(this->session), VideoCB, user);
+	chiaki_session_set_event_cb(&(this->session), EventCB, user);
 	return 0;
 }
 
@@ -134,7 +132,6 @@ void Host::StartSession()
 		chiaki_session_fini(&this->session);
 		throw Exception("Chiaki Session Start failed");
 	}
-	//sleep(1);
 }
 
 void Host::SendFeedbackState(ChiakiControllerState *state){
@@ -153,15 +150,21 @@ void Host::RegistCB(ChiakiRegistEvent *event){
 	switch(event->type)
 	{
 		case CHIAKI_REGIST_EVENT_TYPE_FINISHED_CANCELED:
-			//FIXME
+			CHIAKI_LOGI(this->log, "Register event CHIAKI_REGIST_EVENT_TYPE_FINISHED_CANCELED");
+			if(this->chiaki_regist_event_type_finished_canceled != nullptr){
+				this->chiaki_regist_event_type_finished_canceled();
+			}
 			break;
 		case CHIAKI_REGIST_EVENT_TYPE_FINISHED_FAILED:
-			//FIXME
-			CHIAKI_LOGI(this->log, "Register failed %s", this->host_name.c_str());
+			CHIAKI_LOGI(this->log, "Register event CHIAKI_REGIST_EVENT_TYPE_FINISHED_FAILED");
+			if(this->chiaki_regist_event_type_finished_failed != nullptr){
+				this->chiaki_regist_event_type_finished_failed();
+			}
 			break;
 		case CHIAKI_REGIST_EVENT_TYPE_FINISHED_SUCCESS:
 		{
 			ChiakiRegisteredHost *r_host = event->registered_host;
+			CHIAKI_LOGI(this->log, "Register event CHIAKI_REGIST_EVENT_TYPE_FINISHED_SUCCESS");
 			// copy values form ChiakiRegisteredHost object
 			this->ap_ssid = r_host->ap_ssid;
 			this->ap_key = r_host->ap_key;
@@ -175,9 +178,17 @@ void Host::RegistCB(ChiakiRegistEvent *event){
 			this->registered = true;
 			this->rp_key_data = true;
 			CHIAKI_LOGI(this->log, "Register Success %s", this->host_name.c_str());
+
+			if(this->chiaki_regist_event_type_finished_success != nullptr){
+				this->chiaki_regist_event_type_finished_success();
+			}
+
 			break;
 		}
 	}
+	// close registration socket
+	chiaki_regist_stop(&this->regist);
+	chiaki_regist_fini(&this->regist);
 }
 
 bool Host::GetVideoResolution(int * ret_width, int * ret_height){

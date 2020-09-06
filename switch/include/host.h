@@ -41,10 +41,12 @@
 
 class DiscoveryManager;
 static void Discovery(ChiakiDiscoveryHost*, void*);
-static void Regist(ChiakiRegistEvent*, void*);
-static void InitAudio(unsigned int channels, unsigned int rate, void * user);
-static bool Video(uint8_t * buf, size_t buf_size, void * user);
-static void Audio(int16_t * buf, size_t samples_count, void * user);
+static void InitAudioCB(unsigned int channels, unsigned int rate, void * user);
+static bool VideoCB(uint8_t * buf, size_t buf_size, void * user);
+static void AudioCB(int16_t * buf, size_t samples_count, void * user);
+static void RegistEventCB(ChiakiRegistEvent * event, void * user);
+static void EventCB(ChiakiEvent * event, void * user);
+
 
 class Host
 {
@@ -64,6 +66,12 @@ class Host
 		std::string psn_online_id = "";
 		std::string psn_account_id = "";
 		// info from regist/settings
+		ChiakiRegist regist = {};
+		ChiakiRegistInfo regist_info = { 0 };
+		std::function<void()> chiaki_regist_event_type_finished_canceled = nullptr;
+		std::function<void()> chiaki_regist_event_type_finished_failed = nullptr;
+		std::function<void()> chiaki_regist_event_type_finished_success = nullptr;
+
 		std::string ap_ssid;
 		std::string ap_bssid;
 		std::string ap_key;
@@ -103,6 +111,17 @@ class Host
 		void StartSession();
 		void SendFeedbackState(ChiakiControllerState*);
 		void RegistCB(ChiakiRegistEvent*);
+
+		void SetRegistEventTypeFinishedCanceled(std::function<void()> chiaki_regist_event_type_finished_canceled){
+			this->chiaki_regist_event_type_finished_canceled = chiaki_regist_event_type_finished_canceled;
+		};
+		void SetRegistEventTypeFinishedFailed(std::function<void()> chiaki_regist_event_type_finished_failed){
+			this->chiaki_regist_event_type_finished_failed = chiaki_regist_event_type_finished_failed;
+		};
+		void SetRegistEventTypeFinishedSuccess(std::function<void()> chiaki_regist_event_type_finished_success){
+			this->chiaki_regist_event_type_finished_success = chiaki_regist_event_type_finished_success;
+		};
+
 };
 
 #endif

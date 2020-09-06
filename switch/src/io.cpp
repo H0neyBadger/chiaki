@@ -248,7 +248,7 @@ void IO::InitAudioCB(unsigned int channels, unsigned int rate){
 	want.callback = NULL;
 
 	this->sdl_audio_device_id = SDL_OpenAudioDevice(NULL, 0, &want, NULL, 0);
-	if(this->sdl_audio_device_id < 0){
+	if(this->sdl_audio_device_id <= 0){
 		CHIAKI_LOGE(this->log, "SDL_OpenAudioDevice failed: %s\n", SDL_GetError());
 	} else {
 		SDL_PauseAudioDevice(this->sdl_audio_device_id, 0);
@@ -293,6 +293,35 @@ bool IO::InitVideo(int video_width, int video_height, int screen_width, int scre
 #endif
 	return true;
 }
+
+void IO::EventCB(ChiakiEvent *event){
+    switch(event->type)
+    {
+        case CHIAKI_EVENT_CONNECTED:
+			CHIAKI_LOGI(this->log, "EventCB CHIAKI_EVENT_CONNECTED");
+            if(this->chiaki_event_connected_cb != nullptr){
+				this->quite = !this->chiaki_event_connected_cb();
+			} else {
+				this->quite = false;
+			}
+			break;
+        case CHIAKI_EVENT_LOGIN_PIN_REQUEST:
+			CHIAKI_LOGI(this->log, "EventCB CHIAKI_EVENT_LOGIN_PIN_REQUEST");
+            if(this->chiaki_even_login_pin_request_cb != nullptr){
+				this->quite = !this->chiaki_even_login_pin_request_cb(event->login_pin_request.pin_incorrect);
+			}
+            break;
+        case CHIAKI_EVENT_QUIT:
+			CHIAKI_LOGI(this->log, "EventCB CHIAKI_EVENT_QUIT");
+			if(this->chiaki_event_quite_cb != nullptr){
+				this->quite = !this->chiaki_event_quite_cb();
+			} else {
+				this->quite = true;
+			}
+            break;
+    }
+}
+
 
 bool IO::FreeVideo(){
 	bool ret = true;
@@ -898,6 +927,6 @@ bool IO::MainLoop(ChiakiControllerState * state){
 		SDL_Delay((1000 / 60) - (end - start));
 	}
 	*/
-	return true;
+	return !this->quite;
 }
 

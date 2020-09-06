@@ -381,6 +381,14 @@ void MainApplication::OnLoad() {
 	this->setting_layout = SettingLayout::New(nullptr, this->settings, this->io, show_custom_dialog_cb);
 	this->setting_layout->SetOnInput(std::bind(&MainApplication::SettingInput, this,
 			std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
+
+	// FIXME: we cannot use the EventConnectedCallback because sdl2 is already in used by plutonium
+	// durring the connection process all audio/video .. objects are initialized.
+	// so we have to release all plutonium object before entering into chiaki session
+	// this->io->SetEventConnectedCallback(std::bind(&MainApplication::HostConnectedCallback, this));
+	//
+	this->io->SetEventLoginPinRequestCallback(std::bind(&MainApplication::HostPinCodeCallback, this, std::placeholders::_1));
+	// this->io->SetEventQuit();
 }
 
 void MainApplication::ReturnToMainMenu() {
@@ -411,46 +419,75 @@ void MainApplication::ShowCustomDialogCallback(chiaki::ui::CustomDialog::Ref cus
 
 void MainApplication::SetHostCallback(Host * host) {
 	this->host = host;
-	char pin_input[9];
-	int retry = 0;
-	bool pin_provided = false;
+
 	if(host->state != CHIAKI_DISCOVERY_HOST_STATE_READY) {
 		// host in standby mode
 		this->CreateShowDialog("Failed to initiate session", "Please turn on your PS4", { "OK" }, true);
 		return;
-	} else if(!host->rp_key_data) {
-		// the host is not registered yet
-		this->CreateShowDialog("Initiate session", "Please enter PS4 registration PIN code", { "OK" }, true);
-		// spawn keyboard
-		while(retry == 0){
-			pin_provided = io->ReadUserKeyboard(pin_input, sizeof(pin_input));
-			if(pin_provided){
-				host->Register(pin_input);
-				// FIXME: register is asynchronous
-				sleep(1);
-				if(!host->rp_key_data || !host->registered){
-					// registration success
-					retry = this->CreateShowDialog("Session Registration Failed", "Please verify your PS4 settings", { "Retry", "Cancel" }, true);
-				} else {
-					// save registration and session key
-					this->settings->WriteFile();
-					break;
-				}
-			} else {
-				// the user canceled/left
-				// the pin code keyboard input
-				return;
-			}
-		}
 	}
 
-	if(host->rp_key_data) {
-		host->ConnectSession(this->io);
-		host->StartSession();
-		this->Close();
+	// TODO test if account exist ?
+	if(false) {
+		// account not configured
+		this->CreateShowDialog("Failed to initiate session", "No PSN account provided", { "OK" }, true);
+		return;
+	}
+
+	if(!host->rp_key_data){
+		// add HostConnected function to regist_event_type_finished_success
+		this->host->SetRegistEventTypeFinishedSuccess(std::bind(&MainApplication::HostConnectSession, this));
+		this->HostPinCodeCallback(false);
+	} else {
+		// the host is already registered
+		// start session directly
+		this->HostConnectSession();
 	}
 }
 
+bool MainApplication::HostPinCodeCallback(bool pin_incorrect){
+	bool pin_provided = false;
+	if(pin_incorrect) {
+		bool retry = this->CreateShowDialog("Session Registration Failed", "Please verify your PS4 settings", { "Retry", "Cancel" }, true);
+		if(retry != 0){
+			return false;
+		}
+	} else {
+		// the host is not registered yet
+		this->CreateShowDialog("Initiate session", "Please enter PS4 registration PIN code", { "OK" }, true);
+	}
+	char pin_input[9] = {0};
+	pin_provided = io->ReadUserKeyboard(pin_input, sizeof(pin_input));
+	if(pin_provided){
+		this->host->Register(pin_input);
+	} else {
+		// user canceled the pin registration process
+		// this->CreateShowDialog("Initiate session", "No code provided", { "OK" }, true);
+	}
+	return true;
+}
+
+bool MainApplication::HostConnectSession(){
+	if(host->registered){
+		// save RP keys
+		this->settings->WriteFile();
+	}
+	// connect host sesssion
+	host->ConnectSession(this->io);
+	host->StartSession();
+	// FIXME: it does not wait for complete connection
+	// quite completely the gui app to release SDL2 objects
+	this->Close();
+	// we cannot display errors on screen if the connection failed
+	return true;
+}
+
+bool MainApplication::HostConnectedCallback(){
+	// quite completely the gui app
+	this->Close();
+	// from here the GUI is unloaded
+	// now SDL2 is managed by the IO object
+	return true;
+}
 
 void MainApplication::WakeupHostCallback(Host * host) {
 	if(!host->rp_key_data) {

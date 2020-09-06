@@ -18,6 +18,7 @@
 #ifndef CHIAKI_IO_H
 #define CHIAKI_IO_H
 
+#include <functional>
 #include <cstdint>
 #include <SDL2/SDL.h>
 
@@ -26,6 +27,8 @@
 #include <EGL/eglext.h> // EGL extensions
 #include <glad/glad.h>  // glad library (OpenGL loader)
 #endif
+
+#include <chiaki/session.h>
 
 
 /*
@@ -67,12 +70,16 @@ class IO {
 		bool init_sdl;
 		int video_width;
 		int video_height;
+		bool quite = false;
 		// opengl reader writer
 		int cargo = 0;
 		// default nintendo switch res
 		bool resize = true;
 		int screen_width = 1280;
 		int screen_height = 720;
+		std::function<bool()> chiaki_event_connected_cb = nullptr;
+		std::function<bool(bool)> chiaki_even_login_pin_request_cb = nullptr;
+		std::function<bool()> chiaki_event_quite_cb = nullptr;
 		AVCodec * codec;
 		AVCodecContext * codec_context;
 		SDL_Window * sdl_window;
@@ -117,10 +124,24 @@ class IO {
 		IO(ChiakiLog * log);
 		~IO();
 		bool VideoCB(uint8_t * buf, size_t buf_size);
-		void SetSDLRenderer(SDL_Renderer * renderer){ this->renderer = renderer; };
-		void SetSDLWindow(SDL_Window * sdl_window){ this->sdl_window = sdl_window; };
+		void SetSDLRenderer(SDL_Renderer * renderer){
+			this->renderer = renderer;
+		};
+		void SetSDLWindow(SDL_Window * sdl_window){
+			this->sdl_window = sdl_window;
+		};
+		void SetEventConnectedCallback(std::function<bool()> chiaki_event_connected_cb){
+			this->chiaki_event_connected_cb = chiaki_event_connected_cb;
+		};
+		void SetEventLoginPinRequestCallback(std::function<bool(bool)> chiaki_even_login_pin_request_cb){
+			this->chiaki_even_login_pin_request_cb = chiaki_even_login_pin_request_cb;
+		};
+		void SetEventQuit(std::function<bool()> chiaki_event_quite_cb){
+			this->chiaki_event_quite_cb = chiaki_event_quite_cb;
+		};
 		void InitAudioCB(unsigned int channels, unsigned int rate);
 		void AudioCB(int16_t * buf, size_t samples_count);
+		void EventCB(ChiakiEvent *event);
 		bool InitVideo(int video_width, int video_height, int screen_width, int screen_height);
 		bool FreeVideo();
 		bool ResizeVideo(int width, int height);

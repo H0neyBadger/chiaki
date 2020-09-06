@@ -169,6 +169,9 @@ class MainApplication : public pu::ui::Application {
 		Host * GetHost();
 		void ShowCustomDialogCallback(chiaki::ui::CustomDialog::Ref custom_dialog);
 		void SetHostCallback(Host * host);
+		bool HostPinCodeCallback(bool pin_incorrect);
+		bool HostConnectSession();
+		bool HostConnectedCallback();
 		void WakeupHostCallback(Host * host);
 		void ConfigureHostCallback(Host * host);
 		void DiscoverySendCallback(Host * host);

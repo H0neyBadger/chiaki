@@ -175,6 +175,11 @@ int main(int argc, char* argv[]){
 	    plutonium_app->Show();
 		// retrieve ps4 gui host ptr
 		host = plutonium_app->GetHost();
+		/*
+		io.SetSDLWindow(pu::ui::render::GetMainWindow());
+		io.SetSDLRenderer(pu::ui::render::GetMainRenderer());
+		*/
+
 #else
 		// wait for discoverymanager
 		sleep(1);
