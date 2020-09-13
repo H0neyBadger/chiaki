@@ -47,78 +47,74 @@ add_library(jerasure STATIC ${JERASURE_SOURCE})
 target_include_directories(jerasure PUBLIC jerasure/include)
 target_link_libraries(jerasure gf_complete)
 
-if(CHIAKI_ENABLE_SWITCH AND NOT CHIAKI_SWITCH_ENABLE_LINUX)
-	set(PLUTONIUM_SOURCE
-			Plutonium/Plutonium/Source/pu/audio/audio_Music.cpp
-			Plutonium/Plutonium/Source/pu/audio/audio_Sfx.cpp
-			Plutonium/Plutonium/Source/pu/pu_String.cpp
-			Plutonium/Plutonium/Source/pu/sdl2/ttf_SDL_ttf.c
-			Plutonium/Plutonium/Source/pu/ttf/ttf_Font.cpp
-			Plutonium/Plutonium/Source/pu/ui/render/render_SDL2.cpp
-			Plutonium/Plutonium/Source/pu/ui/render/render_Renderer.cpp
-			Plutonium/Plutonium/Source/pu/ui/ui_Types.cpp
-			Plutonium/Plutonium/Source/pu/ui/extras/extras_Toast.cpp
-			Plutonium/Plutonium/Source/pu/ui/elm/elm_Rectangle.cpp
-			Plutonium/Plutonium/Source/pu/ui/elm/elm_Element.cpp
-			Plutonium/Plutonium/Source/pu/ui/elm/elm_Toggle.cpp
-			Plutonium/Plutonium/Source/pu/ui/elm/elm_ProgressBar.cpp
-			Plutonium/Plutonium/Source/pu/ui/elm/elm_Button.cpp
-			Plutonium/Plutonium/Source/pu/ui/elm/elm_Menu.cpp
-			Plutonium/Plutonium/Source/pu/ui/elm/elm_Image.cpp
-			Plutonium/Plutonium/Source/pu/ui/elm/elm_TextBlock.cpp
-			Plutonium/Plutonium/Source/pu/ui/ui_Layout.cpp
-			Plutonium/Plutonium/Source/pu/ui/ui_Overlay.cpp
-			Plutonium/Plutonium/Source/pu/ui/ui_Dialog.cpp
-			Plutonium/Plutonium/Source/pu/ui/ui_Container.cpp
-			Plutonium/Plutonium/Source/pu/ui/ui_Application.cpp)
-	add_library(plutonium STATIC ${PLUTONIUM_SOURCE})
-	# workaroud to include ft2build.h
-	target_include_directories(plutonium PRIVATE ${PORTLIBS_PREFIX}/include/freetype2)
-	target_include_directories(plutonium PUBLIC Plutonium/Plutonium/Include)
+##################
+# borealis
+##################
 
-	find_library(FREETYPE freetype)
-	find_library(BZ2 bz2)
-	find_library(Z z)
-	# find_package(sdl2 CONFIG REQUIRED)
-	find_library(SDL2_MIXER SDL2_mixer)
-	find_library(OPUSFILE opusfile)
-	find_library(OPUS opus)
-	find_library(MODPLUG modplug)
-	find_library(MPG123 mpg123)
-	find_library(VORBISIDEC vorbisidec)
-	find_library(OGG ogg)
-	find_library(SDL2_TTF SDL2_ttf)
-	find_library(SDL2_GFX SDL2_gfx)
-	find_library(SDL2_IMAGE SDL2_image)
-	find_library(SDL2 SDL2)
+if(CHIAKI_ENABLE_SWITCH)
+    # do not include
+    # borealis/library/lib/switch_wrapper.c
+    # switch functions are in switch/src/main.cpp
+	set(BOREALIS_SOURCE
+        borealis/library/lib/extern/libretro-common/features/features_cpu.c
+        borealis/library/lib/extern/libretro-common/encodings/encoding_utf.c
+        borealis/library/lib/extern/libretro-common/compat/compat_strl.c
+        borealis/library/lib/extern/nxfmtwrapper/format.cpp
+        borealis/library/lib/extern/nanovg/nanovg.c
+        borealis/library/lib/extern/glad/glad.c
+        borealis/library/lib/scroll_view.cpp
+        borealis/library/lib/style.cpp
+        borealis/library/lib/table.cpp
+        borealis/library/lib/task_manager.cpp
+        borealis/library/lib/progress_display.cpp
+        borealis/library/lib/staged_applet_frame.cpp
+        borealis/library/lib/applet_frame.cpp
+        borealis/library/lib/hint.cpp
+        borealis/library/lib/image.cpp
+        borealis/library/lib/logger.cpp
+        borealis/library/lib/swkbd.cpp
+        borealis/library/lib/crash_frame.cpp
+        borealis/library/lib/header.cpp
+        borealis/library/lib/progress_spinner.cpp
+        borealis/library/lib/layer_view.cpp
+        borealis/library/lib/notification_manager.cpp
+        borealis/library/lib/rectangle.cpp
+        borealis/library/lib/application.cpp
+        borealis/library/lib/box_layout.cpp
+        borealis/library/lib/sidebar.cpp
+        borealis/library/lib/dropdown.cpp
+        borealis/library/lib/popup_frame.cpp
+        borealis/library/lib/repeating_task.cpp
+        borealis/library/lib/absolute_layout.cpp
+        borealis/library/lib/i18n.cpp
+        borealis/library/lib/tab_frame.cpp
+        borealis/library/lib/thumbnail_frame.cpp
+        borealis/library/lib/animations.cpp
+        borealis/library/lib/dialog.cpp
+        borealis/library/lib/view.cpp
+        borealis/library/lib/list.cpp
+        borealis/library/lib/button.cpp
+        borealis/library/lib/label.cpp
+        borealis/library/lib/theme.cpp
+        borealis/library/lib/material_icon.cpp)
+
+	add_library(borealis STATIC ${BOREALIS_SOURCE})
+	target_include_directories(borealis PUBLIC
+		borealis/library/include
+        borealis/library/include/borealis/extern
+		borealis/library/include/borealis/extern/glad
+		borealis/library/include/borealis/extern/nanovg
+		borealis/library/include/borealis/extern/libretro-common
+		borealis/library/lib/extern/fmt/include)
+
+    find_package(glfw3 REQUIRED)
 	find_library(EGL EGL)
-	find_library(GLESV2 GLESv2)
 	find_library(GLAPI glapi)
 	find_library(DRM_NOUVEAU drm_nouveau)
-	find_library(WEBP webp)
-	find_library(PNG png)
-	find_library(JPEG jpeg)
-	target_link_libraries(plutonium
-		${FREETYPE}
-		${BZ}
-		${Z}
-		${SDL2_MIXER}
-		${OPUSFILE}
-		${OPUS}
-		${MODPLUG}
-		${MPG123}
-		${VORBISIDEC}
-		${OGG}
-		${SDL2_TTF}
-		${SDL2_GFX}
-		${SDL2_IMAGE}
-		${SDL2}
+	target_link_libraries(borealis
+		glfw
 		${EGL}
-		${GLESV2}
 		${GLAPI}
-		${DRM_NOUVEAU}
-		${WEBP}
-		${PNG}
-		${JPEG})
+		${DRM_NOUVEAU})
 endif()
 

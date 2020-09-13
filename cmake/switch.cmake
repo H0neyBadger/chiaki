@@ -19,7 +19,7 @@ include("${DEVKITPRO}/switch.cmake")
 # https://github.com/diasurgical/devilutionX/pull/764
 set(ARCH "-march=armv8-a+crc+crypto -mtune=cortex-a57 -mtp=soft -ftls-model=local-exec")
 # set(CMAKE_C_FLAGS "-O2 -ffunction-sections ${ARCH}")
-set(CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} -fno-rtti")
+set(CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS}")
 # workaroud force -fPIE to avoid
 # aarch64-none-elf/bin/ld: read-only segment has dynamic relocations
 set(CMAKE_EXE_LINKER_FLAGS "-specs=${DEVKITPRO}/libnx/switch.specs ${ARCH} -fPIE -Wl,-Map,Output.map")

@@ -30,14 +30,7 @@
 
 #include "exception.h"
 #include "io.h"
-
-#ifdef CHIAKI_ENABLE_SWITCH_OVERCLOCK
-#define OC_1785 1785000000
-#define OC_1580 1580000000
-#define OC_1326 1326000000
-#define OC_1220 1220000000
-#define OC_1020 1020000000
-#endif
+#include "settings.h"
 
 class DiscoveryManager;
 static void Discovery(ChiakiDiscoveryHost*, void*);
@@ -47,80 +40,86 @@ static void AudioCB(int16_t * buf, size_t samples_count, void * user);
 static void RegistEventCB(ChiakiRegistEvent * event, void * user);
 static void EventCB(ChiakiEvent * event, void * user);
 
+enum RegistError{
+    HOST_REGISTER_OK,
+    HOST_REGISTER_ERROR_SETTING_PSNACCOUNTID,
+    HOST_REGISTER_ERROR_SETTING_PSNONLINEID
+};
+
+class Settings;
 
 class Host
 {
-	private:
-		ChiakiLog *log = NULL;
-		//video config
-		ChiakiVideoResolutionPreset video_resolution = CHIAKI_VIDEO_RESOLUTION_PRESET_720p;
-		ChiakiVideoFPSPreset video_fps = CHIAKI_VIDEO_FPS_PRESET_60;
-#ifdef CHIAKI_ENABLE_SWITCH_OVERCLOCK
-		int cpu_overclock = OC_1326;
-#endif
-		// info from discovery manager
-		int system_version = 0;
-		int device_discovery_protocol_version = 0;
-		std::string host_type;
-		// user info
-		std::string psn_online_id = "";
-		std::string psn_account_id = "";
-		// info from regist/settings
-		ChiakiRegist regist = {};
-		ChiakiRegistInfo regist_info = { 0 };
-		std::function<void()> chiaki_regist_event_type_finished_canceled = nullptr;
-		std::function<void()> chiaki_regist_event_type_finished_failed = nullptr;
-		std::function<void()> chiaki_regist_event_type_finished_success = nullptr;
+    private:
+        ChiakiLog * log = nullptr;
+        Settings * settings = nullptr;
+        //video config
+        ChiakiVideoResolutionPreset video_resolution = CHIAKI_VIDEO_RESOLUTION_PRESET_720p;
+        ChiakiVideoFPSPreset video_fps = CHIAKI_VIDEO_FPS_PRESET_60;
+        // info from discovery manager
+        int device_discovery_protocol_version = 0;
+        std::string host_type;
+        // user info
+        std::string psn_online_id = "";
+        std::string psn_account_id = "";
+        // info from regist/settings
+        ChiakiRegist regist = {};
+        ChiakiRegistInfo regist_info = { 0 };
+        std::function<void()> chiaki_regist_event_type_finished_canceled = nullptr;
+        std::function<void()> chiaki_regist_event_type_finished_failed = nullptr;
+        std::function<void()> chiaki_regist_event_type_finished_success = nullptr;
 
-		std::string ap_ssid;
-		std::string ap_bssid;
-		std::string ap_key;
-		std::string ap_name;
-		std::string ps4_nickname;
-		// mac address = 48 bits
-		uint8_t ps4_mac[6] = {0};
-		char rp_regist_key[CHIAKI_SESSION_AUTH_SIZE] = {0};
-		uint32_t rp_key_type = 0;
-		uint8_t rp_key[0x10] = {0};
-		// manage stream session
-		ChiakiSession session;
-		ChiakiOpusDecoder opus_decoder;
-		ChiakiConnectVideoProfile video_profile;
-		ChiakiControllerState keyboard_state;
-		friend class DiscoveryManager;
-		friend class Settings;
-	public:
-		// internal state
-		ChiakiDiscoveryHostState state = CHIAKI_DISCOVERY_HOST_STATE_UNKNOWN;
-		bool discovered = false;
-		bool registered = false;
-		// rp_key_data is true when rp_key, rp_regist_key, rp_key_type
-		bool rp_key_data = false;
-		std::string host_name;
-		// sony's host_id == mac addr without colon
-		std::string host_id;
-		std::string host_addr;
-		// share picture frame
-		// with main function
-		Host(ChiakiLog *log):log(log) {};
-		Host(){};
-		bool GetVideoResolution(int * ret_width, int * ret_height);
-		int Register(std::string pin);
-		int Wakeup();
-		int ConnectSession(IO *);
-		void StartSession();
-		void SendFeedbackState(ChiakiControllerState*);
-		void RegistCB(ChiakiRegistEvent*);
+        std::string ap_ssid;
+        std::string ap_bssid;
+        std::string ap_key;
+        std::string ap_name;
+        std::string ps4_nickname;
+        // mac address = 48 bits
+        uint8_t ps4_mac[6] = {0};
+        char rp_regist_key[CHIAKI_SESSION_AUTH_SIZE] = {0};
+        uint32_t rp_key_type = 0;
+        uint8_t rp_key[0x10] = {0};
+        // manage stream session
+        bool session_init = false;
+        ChiakiSession session;
+        ChiakiOpusDecoder opus_decoder;
+        ChiakiConnectVideoProfile video_profile;
+        ChiakiControllerState keyboard_state;
+        friend class DiscoveryManager;
+        friend class Settings;
+    public:
+        // internal state
+        ChiakiDiscoveryHostState state = CHIAKI_DISCOVERY_HOST_STATE_UNKNOWN;
+        bool discovered = false;
+        bool registered = false;
+        // rp_key_data is true when rp_key, rp_regist_key, rp_key_type
+        bool rp_key_data = false;
+        std::string host_name;
+        int system_version = 0;
+        // sony's host_id == mac addr without colon
+        std::string host_id;
+        std::string host_addr;
+        Host(ChiakiLog * log, Settings * settings, std::string host_name);
+        ~Host();
+        bool GetVideoResolution(int * ret_width, int * ret_height);
+        int Register(std::string pin);
+        int Wakeup();
+        int InitSession(IO *);
+        int FiniSession();
+        void StopSession();
+        void StartSession();
+        void SendFeedbackState(ChiakiControllerState*);
+        void RegistCB(ChiakiRegistEvent*);
 
-		void SetRegistEventTypeFinishedCanceled(std::function<void()> chiaki_regist_event_type_finished_canceled){
-			this->chiaki_regist_event_type_finished_canceled = chiaki_regist_event_type_finished_canceled;
-		};
-		void SetRegistEventTypeFinishedFailed(std::function<void()> chiaki_regist_event_type_finished_failed){
-			this->chiaki_regist_event_type_finished_failed = chiaki_regist_event_type_finished_failed;
-		};
-		void SetRegistEventTypeFinishedSuccess(std::function<void()> chiaki_regist_event_type_finished_success){
-			this->chiaki_regist_event_type_finished_success = chiaki_regist_event_type_finished_success;
-		};
+        void SetRegistEventTypeFinishedCanceled(std::function<void()> chiaki_regist_event_type_finished_canceled){
+            this->chiaki_regist_event_type_finished_canceled = chiaki_regist_event_type_finished_canceled;
+        };
+        void SetRegistEventTypeFinishedFailed(std::function<void()> chiaki_regist_event_type_finished_failed){
+            this->chiaki_regist_event_type_finished_failed = chiaki_regist_event_type_finished_failed;
+        };
+        void SetRegistEventTypeFinishedSuccess(std::function<void()> chiaki_regist_event_type_finished_success){
+            this->chiaki_regist_event_type_finished_success = chiaki_regist_event_type_finished_success;
+        };
 
 };
 

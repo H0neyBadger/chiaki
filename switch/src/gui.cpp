@@ -15,515 +15,439 @@
  * along with Chiaki.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-
+#include <chiaki/log.h>
 #include "gui.h"
 
-SettingLayout::SettingLayout(
-	Host *host,
-	Settings *settings,
-	IO *io,
-	std::function<void(chiaki::ui::CustomDialog::Ref)> show_custom_dialog_cb):
-		host(host),
-		settings(settings),
-		io(io),
-		show_custom_dialog_cb(show_custom_dialog_cb) {
-	// main setting layout
-	// Use host == nullptr to display global settings
-	// Use the same object to display General settings
-	// and Host advanced settings
-	if(this->host == nullptr){
-		this->title = pu::ui::elm::TextBlock::New(30, 30, "Global Settings");
-	} else {
-		std::string host_name_string = settings->GetHostName(host);
-		this->title = pu::ui::elm::TextBlock::New(30, 30, host_name_string + " Settings");
-	}
-	this->title->SetFont("DefaultFont@30");
-	this->Add(this->title);
+#define SCREEN_W 1280
+#define SCREEN_H 720
+
+// TODO
+using namespace brls::i18n::literals; // for _i18n
+
+#define DIALOG(dialog, r) \
+    brls::Dialog* d_##dialog = new brls::Dialog(r); \
+    brls::GenericEvent::Callback cb_##dialog = [d_##dialog](brls::View* view) { \
+        d_##dialog->close(); \
+    }; \
+    d_##dialog->addButton("Ok", cb_##dialog); \
+    d_##dialog->setCancelable(false); \
+    d_##dialog->open(); \
+    brls::Logger::info("Dialog: {0}", r);
 
 
-	// default color scheme
-	this->menu_color = pu::ui::Color(224,224,224,255);
-	this->menu_focus_color = pu::ui::Color(192,192,192,255);
-	// main menu holder
-	int item_count = 5;
-	if(this->host != nullptr){
-		item_count = 10;
-	}
-	this->setting_menu = pu::ui::elm::Menu::New(0,100,1280,
-		this->menu_color, 60, item_count);
-	this->setting_menu->SetOnFocusColor(this->menu_focus_color);
+HostInterface::HostInterface(brls::List * hostList, IO * io, Host * host, Settings * settings):
+    hostList(hostList), io(io), host(host), settings(settings) {
 
-	// use fake string to create items
-	// text values are maintained by UpdateSettings() function
-	this->psn_online_id_item = pu::ui::elm::MenuItem::New("PSN Online ID");
-	this->psn_account_id_item = pu::ui::elm::MenuItem::New("PSN Account ID (v7.0 and greater)");
+    brls::ListItem* connect = new brls::ListItem("Connect");
+    connect->getClickEvent()->subscribe(std::bind(&HostInterface::Connect, this, std::placeholders::_1));
+    this->hostList->addView(connect);
 
-	this->video_resolution_item = pu::ui::elm::MenuItem::New("Resolution");
-	this->video_fps_item = pu::ui::elm::MenuItem::New("FPS");
-#ifdef CHIAKI_ENABLE_SWITCH_OVERCLOCK
-	this->cpu_overclock_item = pu::ui::elm::MenuItem::New("Overclock");
-#endif
-	this->host_ipaddr_item = pu::ui::elm::MenuItem::New("PS4 IP Address");
-	this->host_name_item = pu::ui::elm::MenuItem::New("PS4 Hostname");
-	this->host_rp_regist_key_item = pu::ui::elm::MenuItem::New("PS4 RP Register Key");
-	this->host_rp_key_type_item = pu::ui::elm::MenuItem::New("PS4 RP Key Type");
-	this->host_rp_key_item = pu::ui::elm::MenuItem::New("PS4 RP Key");
+    brls::ListItem* wakeup = new brls::ListItem("Wakeup");
+    wakeup->getClickEvent()->subscribe(std::bind(&HostInterface::Wakeup, this, std::placeholders::_1));
+    this->hostList->addView(wakeup);
 
-	// build configuration item's list
-	if(this->host != nullptr){
-		this->setting_menu->AddItem(this->host_name_item);
-		this->setting_menu->AddItem(this->host_ipaddr_item);
-	}
+    // message delimiter
+    brls::Label* info = new brls::Label(brls::LabelStyle::REGULAR,
+            "Host configuration", true);
+    this->hostList->addView(info);
 
-	this->setting_menu->AddItem(this->psn_online_id_item);
-	this->setting_menu->AddItem(this->psn_account_id_item);
-	this->setting_menu->AddItem(this->video_resolution_item);
-	this->setting_menu->AddItem(this->video_fps_item);
-#ifdef CHIAKI_ENABLE_SWITCH_OVERCLOCK
-	this->setting_menu->AddItem(this->cpu_overclock_item);
-#endif
-	if(this->host != nullptr){
-		this->setting_menu->AddItem(this->host_rp_regist_key_item);
-		this->setting_menu->AddItem(this->host_rp_key_type_item);
-		this->setting_menu->AddItem(this->host_rp_key_item);
-	}
-	this->Add(this->setting_menu);
-
-	// nested custom menu
-	int x = 300, y = 300, width = 300, item_size = 60;
-
-	this->video_resolution_menu = pu::ui::elm::Menu::New(x,y,width,
-		this->menu_color, item_size, 3);
-	this->video_resolution_menu->SetOnFocusColor(this->menu_focus_color);
-	this->video_res_720p = pu::ui::elm::MenuItem::New("720p");
-	this->video_res_540p = pu::ui::elm::MenuItem::New("540p");
-	this->video_res_360p = pu::ui::elm::MenuItem::New("360p");
-	this->video_res_720p->AddOnClick(std::bind(&SettingLayout::SetVideoResolutionCallback, this, CHIAKI_VIDEO_RESOLUTION_PRESET_720p));
-    this->video_res_540p->AddOnClick(std::bind(&SettingLayout::SetVideoResolutionCallback, this, CHIAKI_VIDEO_RESOLUTION_PRESET_540p));
-    this->video_res_360p->AddOnClick(std::bind(&SettingLayout::SetVideoResolutionCallback, this, CHIAKI_VIDEO_RESOLUTION_PRESET_360p));
-	this->video_resolution_menu->AddItem(this->video_res_720p);
-	this->video_resolution_menu->AddItem(this->video_res_540p);
-	this->video_resolution_menu->AddItem(this->video_res_360p);
-	this->video_resolution_dialog = chiaki::ui::CustomDialog::New("Video",
-		"Resolution", this->video_resolution_menu);
-
-	this->video_fps_menu = pu::ui::elm::Menu::New(x,y,width,
-		this->menu_color, item_size, 2);
-	this->video_fps_menu->SetOnFocusColor(this->menu_focus_color);
-	this->video_fps_60 = pu::ui::elm::MenuItem::New("60 FPS");
-	this->video_fps_30 = pu::ui::elm::MenuItem::New("30 FPS");
-	this->video_fps_60->AddOnClick(std::bind(&SettingLayout::SetVideoFPSCallback, this, CHIAKI_VIDEO_FPS_PRESET_60));
-	this->video_fps_30->AddOnClick(std::bind(&SettingLayout::SetVideoFPSCallback, this, CHIAKI_VIDEO_FPS_PRESET_30));
-	this->video_fps_menu->AddItem(this->video_fps_60);
-	this->video_fps_menu->AddItem(this->video_fps_30);
-	this->video_fps_dialog = chiaki::ui::CustomDialog::New("Video",
-		"FPS", this->video_fps_menu);
-#ifdef CHIAKI_ENABLE_SWITCH_OVERCLOCK
-	this->cpu_overclock_menu = pu::ui::elm::Menu::New(x,y,width,
-		this->menu_color, item_size, 5);
-	this->cpu_overclock_menu->SetOnFocusColor(this->menu_focus_color);
-	this->cpu_oc_1785 = pu::ui::elm::MenuItem::New("1785 MHz (max)");
-	this->cpu_oc_1580 = pu::ui::elm::MenuItem::New("1580 MHz");
-	this->cpu_oc_1326 = pu::ui::elm::MenuItem::New("1326 MHz");
-	this->cpu_oc_1220 = pu::ui::elm::MenuItem::New("1220 MHz");
-	this->cpu_oc_1020 = pu::ui::elm::MenuItem::New("1020 MHz (default)");
-	this->cpu_oc_1785->AddOnClick(std::bind(&SettingLayout::SetCPUOverclockCallback, this, OC_1785));
-	this->cpu_oc_1580->AddOnClick(std::bind(&SettingLayout::SetCPUOverclockCallback, this, OC_1580));
-	this->cpu_oc_1326->AddOnClick(std::bind(&SettingLayout::SetCPUOverclockCallback, this, OC_1326));
-	this->cpu_oc_1220->AddOnClick(std::bind(&SettingLayout::SetCPUOverclockCallback, this, OC_1220));
-	this->cpu_oc_1020->AddOnClick(std::bind(&SettingLayout::SetCPUOverclockCallback, this, OC_1020));
-	this->cpu_overclock_menu->AddItem(this->cpu_oc_1785);
-	this->cpu_overclock_menu->AddItem(this->cpu_oc_1580);
-	this->cpu_overclock_menu->AddItem(this->cpu_oc_1326);
-	this->cpu_overclock_menu->AddItem(this->cpu_oc_1220);
-	this->cpu_overclock_menu->AddItem(this->cpu_oc_1020);
-	this->cpu_overclock_dialog = chiaki::ui::CustomDialog::New("CPU",
-		"OverClock", this->cpu_overclock_menu);
-#endif
-
-	// build call back/action system
-
-	this->psn_account_id_item->AddOnClick(std::bind(&SettingLayout::SetPSNAccountIDCallback, this));
-	this->psn_online_id_item->AddOnClick(std::bind(&SettingLayout::SetPSNOnlineIDCallback, this));
-
-	this->video_resolution_item->AddOnClick(std::bind(show_custom_dialog_cb, this->video_resolution_dialog));
-	this->video_fps_item->AddOnClick(std::bind(show_custom_dialog_cb, this->video_fps_dialog));
-#ifdef CHIAKI_ENABLE_SWITCH_OVERCLOCK
-	this->cpu_overclock_item->AddOnClick(std::bind(show_custom_dialog_cb, this->cpu_overclock_dialog));
-#endif
-	// this->host_ipaddr_item->AddOnClick(std::function< void()> Callback, u64 Key=KEY_A);
-
-	// Update string info
-	this->UpdateSettings();
+    // push opengl chiaki stream
+    // when the host is connected
+    this->io->SetEventConnectedCallback(std::bind(&HostInterface::Stream, this));
+    this->io->SetEventQuitCallback(std::bind(&HostInterface::CloseStream, this, std::placeholders::_1));
 }
 
-void SettingLayout::SetPSNAccountIDCallback(){
-	char psn_account_id[255];
-	bool input = io->ReadUserKeyboard(psn_account_id, sizeof(psn_account_id));
-	if(input){
-		settings->SetPSNAccountID(this->host, psn_account_id);
-		this->UpdateSettings();
-	}
+HostInterface::~HostInterface(){
+    Disconnect();
 }
 
-void SettingLayout::SetPSNOnlineIDCallback(){
-	char psn_online_id[255];
-	bool input = io->ReadUserKeyboard(psn_online_id, sizeof(psn_online_id));
-	if(input){
-		settings->SetPSNOnlineID(this->host, psn_online_id);
-		this->UpdateSettings();
-	}
+void HostInterface::Register(bool pin_incorrect){
+    if(pin_incorrect) {
+        DIALOG(srfpvyps, "Session Registration Failed, Please verify your PS4 settings");
+        return;
+    }
+    // the host is not registered yet
+    brls::Dialog* peprpc = new brls::Dialog("Please enter PS4 registration PIN code");
+    brls::GenericEvent::Callback cb_peprpc = [this, peprpc](brls::View* view) {
+        bool pin_provided = false;
+        char pin_input[9] = {0};
+        std::string error_message;
+
+        // use callback to ensure that the message is showed on screen
+        // before the the ReadUserKeyboard
+        peprpc->close();
+
+        pin_provided = this->io->ReadUserKeyboard(pin_input, sizeof(pin_input));
+        if(pin_provided){
+            // prevent users form messing with the gui
+            brls::Application::blockInputs();
+            int ret = this->host->Register(pin_input);
+            if(ret != HOST_REGISTER_OK) {
+                switch(ret){
+                    // account not configured
+                    case HOST_REGISTER_ERROR_SETTING_PSNACCOUNTID:
+                        brls::Application::notify("No PSN Account ID provided");
+                        brls::Application::unblockInputs();
+                        break;
+                    case HOST_REGISTER_ERROR_SETTING_PSNONLINEID:
+                        brls::Application::notify("No PSN Online ID provided");
+                        brls::Application::unblockInputs();
+                        break;
+                }
+            }
+        }
+    };
+    peprpc->addButton("Ok", cb_peprpc);
+    peprpc->setCancelable(false);
+    peprpc->open();
 }
 
-void SettingLayout::SetVideoResolutionCallback(ChiakiVideoResolutionPreset value){
-	settings->SetVideoResolution(this->host, value);
-	this->UpdateSettings();
+void HostInterface::Wakeup(brls::View * view) {
+    if(!this->host->rp_key_data) {
+        // the host is not registered yet
+        DIALOG(prypf, "Please register your PS4 first");
+    } else {
+        int r = host->Wakeup();
+        if(r == 0){
+            brls::Application::notify("PS4 Wakeup packet sent");
+        } else {
+            brls::Application::notify("PS4 Wakeup packet failed");
+        }
+    }
 }
 
-void SettingLayout::SetVideoFPSCallback(ChiakiVideoFPSPreset value){
-	settings->SetVideoFPS(this->host, value);
-	this->UpdateSettings();
+void HostInterface::Connect(brls::View * view) {
+    // check that all requirements are met
+    if(this->host->state != CHIAKI_DISCOVERY_HOST_STATE_READY) {
+        // host in standby mode
+        DIALOG(ptoyp, "Please turn on your PS4");
+        return;
+    }
+
+    if(!this->host->rp_key_data){
+        // user must provide psn id for registration
+        std::string account_id = this->settings->GetPSNAccountID(this->host);
+        std::string online_id = this->settings->GetPSNOnlineID(this->host);
+        if(this->host->system_version >= 7000000 && account_id.length() <= 0){
+            // PS4 firmware > 7.0
+            DIALOG(upaid, "Undefined PSN Account ID (Please configure a valid psn_account_id)");
+            return;
+        } else if( this->host->system_version < 7000000 && this->host->system_version > 0 && online_id.length() <= 0){
+            // use oline ID for ps4 < 7.0
+            DIALOG(upoid, "Undefined PSN Online ID (Please configure a valid psn_online_id)");
+            return;
+        }
+        // add HostConnected function to regist_event_type_finished_success
+        this->host->SetRegistEventTypeFinishedSuccess([this](){
+            // save RP keys
+            this->settings->WriteFile();
+            // FIXME: may raise a connection refused
+            // when the connection is triggered
+            // just after the register success
+            sleep(2);
+            ConnectSession();
+            // decrement block input token number
+            brls::Application::unblockInputs();
+        });
+        this->host->SetRegistEventTypeFinishedFailed([this](){
+            // unlock user inputs
+            brls::Application::unblockInputs();
+            brls::Application::notify("Registration failed");
+        });
+        this->Register(false);
+    } else {
+        // the host is already registered
+        // start session directly
+        ConnectSession();
+    }
 }
 
-#ifdef CHIAKI_ENABLE_SWITCH_OVERCLOCK
-void SettingLayout::SetCPUOverclockCallback(int cpu_overclock){
-	settings->SetCPUOverclock(this->host, cpu_overclock);
-	this->UpdateSettings();
-}
-#endif
+void HostInterface::ConnectSession(){
+    // ignore all user inputs (avoid double connect)
+    // user inputs are restored with the CloseStream
+    brls::Application::blockInputs();
 
-// synchronize settings on disk and gui
-void SettingLayout::UpdateSettings(){
-	// push changes to local file
-	this->settings->WriteFile();
-	// return global_settings ids when host == nullptr
-
-	std::string psn_online_id_string = settings->GetPSNOnlineID(host);
-	this->psn_online_id_item->SetName("PSN Online ID: "
-		+ psn_online_id_string);
-
-	std::string psn_account_id_string = settings->GetPSNAccountID(host);
-	this->psn_account_id_item->SetName("PSN Account ID (v7.0 and greater): "
-		+ psn_account_id_string);
-
-	std::string video_resolution_string = settings->ResolutionPresetToString(
-		settings->GetVideoResolution(host));
-
-	this->video_resolution_item->SetName("Video Resolution: "
-		+ video_resolution_string);
-
-	std::string video_fps_string = settings->FPSPresetToString(
-		settings->GetVideoFPS(host));
-
-	this->video_fps_item->SetName("Video FPS: "
-		+ video_fps_string);
-
-#ifdef CHIAKI_ENABLE_SWITCH_OVERCLOCK
-	std::string cpu_overclock_string = std::to_string(settings->GetCPUOverclock(host));
-	this->cpu_overclock_item->SetName("CPU Overclock: "
-		+ cpu_overclock_string);
-#endif
-
-	if(this->host != nullptr){
-		std::string host_name_string = settings->GetHostName(host);
-		this->host_name_item->SetName("PS4 Hostname: "
-			+ host_name_string);
-
-		std::string host_ipaddr_string = settings->GetHostIPAddr(host);
-		this->host_ipaddr_item->SetName("PS4 IP Address: "
-			+ host_ipaddr_string);
-
-		std::string host_rp_regist_key_string = settings->GetHostRPRegistKey(host);
-		this->host_rp_regist_key_item->SetName("RP Register Key: "
-			+ host_rp_regist_key_string);
-
-		std::string host_rp_key_string = settings->GetHostRPKey(host);
-		this->host_rp_key_item->SetName("RP Key: "
-			+ host_rp_key_string);
-
-		std::string host_rp_key_type_string = std::to_string(settings->GetHostRPKeyType(host));
-		this->host_rp_key_type_item->SetName("RP Key type: "
-			+ host_rp_key_type_string);
-	}
-	// FIXME: hack to force ReloadItemRenders
-	int idx = this->setting_menu->GetSelectedIndex();
-	this->setting_menu->SetSelectedIndex(idx);
+    // connect host sesssion
+    this->host->InitSession(this->io);
+    this->host->StartSession();
 }
 
-
-AddLayout::AddLayout(): pu::ui::Layout::Layout() {
-	// TODO
-	this->button = chiaki::ui::ClickableImage::New(300, 300, "romfs:/discover-24px.svg");
-	this->button->SetWidth(40);
-	this->button->SetHeight(40);
-	//this->button->SetOnClick(test);
-	this->Add(this->button);
+void HostInterface::Disconnect(){
+    if(this->connected){
+        brls::Application::popView();
+        this->host->StopSession();
+        this->connected = false;
+    }
+    this->host->FiniSession();
 }
 
-MainLayout::MainLayout(
-	std::map<std::string, Host> * hosts,
-	std::function<void(Host *)> DiscoverySendFn,
-	std::function<void(Host *)> SetHostFn,
-	std::function<void(Host *)> WakeupHostFn,
-	std::function<void(Host *)> ConfigureHostFn):
-		pu::ui::Layout::Layout(),
-		hosts(hosts),
-		DiscoverySendFn(DiscoverySendFn),
-		SetHostFn(SetHostFn),
-		WakeupHostFn(WakeupHostFn),
-		ConfigureHostFn(ConfigureHostFn){
-	// 1280 * 720
-	// upper left
-	// TODO
-	this->discover_button = chiaki::ui::ClickableImage::New(30, 30, "romfs:/discover-24px.svg");
-	this->discover_button->SetWidth(40);
-	this->discover_button->SetHeight(40);
-	//this->discover_button->SetOnClick();
-	this->Add(this->discover_button);
+bool HostInterface::Stream() {
+    this->connected = true;
+    // https://github.com/natinusala/borealis/issues/59
+    // disable 60 fps limit
+    brls::Application::setMaximumFPS(0);
 
-	// upper right
-	// TODO
-	this->add_button = chiaki::ui::ClickableImage::New(1160, 30, "romfs:/add-24px.svg");
-	this->add_button->SetWidth(40);
-	this->add_button->SetHeight(40);
-	this->Add(this->add_button);
-	// upper right
+    // show FPS counter
+    // brls::Application::setDisplayFramerate(true);
 
-	this->setting_button = chiaki::ui::ClickableImage::New(1220, 30, "romfs:/settings-20px.svg");
-	this->setting_button->SetWidth(40);
-	this->setting_button->SetHeight(40);
-	this->Add(this->setting_button);
-
-	// default backgroud message
-	this->no_host_found = pu::ui::elm::TextBlock::New(30, 100, "No PS4 Host discovered on LAN,\n"
-		"Please turn on your PS4");
-	this->Add(this->no_host_found);
-
-	// Host color scheme
-	pu::ui::Color menu_color = pu::ui::Color(224,224,224,255);
-	pu::ui::Color menu_focus_color = pu::ui::Color(192,192,192,255);
-	this->console_menu = pu::ui::elm::Menu::New(0,100,1280,
-		menu_color, 200, (620 / 200));
-	this->console_menu->SetOnFocusColor(menu_focus_color);
-
-	this->Add(this->console_menu);
-	// discovery loop
-	this->AddThread(std::bind(&MainLayout::UpdateValues, this));
+    // push raw opengl stream over borealis
+    brls::Application::pushView(new PS4RemotePlay(this->io, this->host));
+    return true;
 }
 
-bool MainLayout::UpdateOrCreateHostMenuItem(Host * host){
-	bool ret = false;
-	std::string text = "hostname: " + host->host_name + "\n"
-						+ "IP: " + host->host_addr + "\n"
-						+ "state: " + chiaki_discovery_host_state_string(host->state) + "\n"
-						+ "discovered: " + (host->discovered ? "true": "false") + "\n"
-						+ "registered: " + (host->registered ? "true": "false") + "\n"
-						+ "host id: " + (host->host_id);
+bool HostInterface::CloseStream(ChiakiQuitEvent * quit){
+    // session QUIT call back
+    brls::Application::unblockInputs();
 
-	if ( this->host_menuitems.find(host->host_name) == this->host_menuitems.end() ) {
-		// create host if udefined
-		this->host_menuitems[host->host_name] = pu::ui::elm::MenuItem::New(text);
-		this->console_menu->AddItem(this->host_menuitems[host->host_name]);
-		this->host_menuitems[host->host_name]->SetIcon("romfs:/console.svg");
-		this->host_menuitems[host->host_name]->SetColor(pu::ui::Color(0,0,0,0));
-		// bind menu item to specific host
-		this->host_menuitems[host->host_name]->AddOnClick(std::bind(this->SetHostFn, host));
-		this->host_menuitems[host->host_name]->AddOnClick(std::bind(this->WakeupHostFn, host), KEY_Y);
-		this->host_menuitems[host->host_name]->AddOnClick(std::bind(this->ConfigureHostFn, host), KEY_X);
-		ret = false;
-	} else {
-		// update with latest text
-		this->host_menuitems[host->host_name]->SetName(text);
-		ret = true;
-	}
-	// FIXME: hack to force ReloadItemRenders
-	int idx = this->console_menu->GetSelectedIndex();
-	this->console_menu->SetSelectedIndex(idx);
-	return ret;
+    // restore 60 fps limit
+    brls::Application::setMaximumFPS(60);
+
+    // brls::Application::setDisplayFramerate(false);
+    /*
+       DIALOG(sqrs, chiaki_quit_reason_string(quit->reason));
+    */
+    brls::Application::notify(chiaki_quit_reason_string(quit->reason));
+    Disconnect();
+    return false;
 }
 
-void MainLayout::UpdateValues() {
-	// do not run every time
-	this->thread_counter++;
-	this->thread_counter%=60;
-	if(this->thread_counter == 0){
-		// send broadcast discovery
-		this->DiscoverySendFn(nullptr);
-		for(auto it = this->hosts->begin(); it != this->hosts->end(); it++){
-			// send broadcast discovery
-			this->DiscoverySendFn(&it->second);
-			this->UpdateOrCreateHostMenuItem(&it->second);
-		}
-	}
+MainApplication::MainApplication(std::map<std::string, Host> * hosts,
+        Settings * settings, DiscoveryManager * discoverymanager,
+        IO * io, ChiakiLog * log):
+    hosts(hosts),
+    settings(settings),
+    discoverymanager(discoverymanager),
+    io(io),
+    log(log) {
 }
 
-
-void MainApplication::OnLoad() {
-	std::function<void(Host *)> discoverysend_cb = std::bind(&MainApplication::DiscoverySendCallback, this, std::placeholders::_1);
-	std::function<void(Host *)> host_cb = std::bind(&MainApplication::SetHostCallback, this, std::placeholders::_1);
-	std::function<void(Host *)> host_wakeup_cb = std::bind(&MainApplication::WakeupHostCallback, this, std::placeholders::_1);
-	std::function<void(Host *)> host_setting_cb = std::bind(&MainApplication::ConfigureHostCallback, this, std::placeholders::_1);
-	this->main_layout = MainLayout::New(this->hosts, discoverysend_cb, host_cb, host_wakeup_cb, host_setting_cb);
-	this->main_layout->add_button->SetOnClick(std::bind(&MainApplication::LoadAddLayout, this));
-	this->main_layout->setting_button->SetOnClick(std::bind(&MainApplication::LoadSettingLayout, this));
-	this->LoadLayout(this->main_layout);
-
-	this->add_layout = AddLayout::New();
-	this->add_layout->SetOnInput(std::bind(&MainApplication::AddInput, this,
-			std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
-
-	std::function<void(chiaki::ui::CustomDialog::Ref)> show_custom_dialog_cb =
-		std::bind(&MainApplication::ShowCustomDialogCallback, this, std::placeholders::_1);
-	// use Host == nullptr to get global settings only
-	// share setting to handle user UI
-	// share IO to prompt interactiv keybord
-	// show_custom_dialog_cb callback that show global settings layout in front
-	this->setting_layout = SettingLayout::New(nullptr, this->settings, this->io, show_custom_dialog_cb);
-	this->setting_layout->SetOnInput(std::bind(&MainApplication::SettingInput, this,
-			std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
-
-	// FIXME: we cannot use the EventConnectedCallback because sdl2 is already in used by plutonium
-	// durring the connection process all audio/video .. objects are initialized.
-	// so we have to release all plutonium object before entering into chiaki session
-	// this->io->SetEventConnectedCallback(std::bind(&MainApplication::HostConnectedCallback, this));
-	//
-	this->io->SetEventLoginPinRequestCallback(std::bind(&MainApplication::HostPinCodeCallback, this, std::placeholders::_1));
-	// this->io->SetEventQuit();
+MainApplication::~MainApplication(){
+    this->discoverymanager->SetService(false);
+    // this->io->FreeJoystick();
+    this->io->FreeVideo();
 }
 
-void MainApplication::ReturnToMainMenu() {
-	this->LoadLayout(this->main_layout);
+bool MainApplication::Load(){
+    this->discoverymanager->SetService(true);
+    // Init the app
+    brls::Logger::setLogLevel(brls::LogLevel::DEBUG);
+
+    brls::i18n::loadTranslations();
+    if (!brls::Application::init("Chiaki Remote play"))
+    {
+        brls::Logger::error("Unable to init Borealis application");
+        return false;
+    }
+
+    // init chiaki gl after borealis
+    // let borealis manage the main screen/window
+
+    if(!io->InitVideo(0, 0, SCREEN_W, SCREEN_H)){
+        brls::Logger::error("Failed to initiate Video");
+    }
+
+    brls::Logger::info("Load sdl joysticks");
+    if(!io->InitJoystick()){
+        brls::Logger::error("Faled to initiate Joysticks");
+    }
+
+    // Create a view
+    this->rootFrame = new brls::TabFrame();
+    this->rootFrame->setTitle("Chiaki: Open Source PS4 Remote Play Client");
+    this->rootFrame->setIcon(BOREALIS_ASSET("icon.jpg"));
+
+    brls::List* config = new brls::List();
+    BuildConfigurationMenu(config);
+
+    this->rootFrame->addTab("Configuration", config);
+    // ----------------
+    this->rootFrame->addSeparator();
+
+    // Add the root view to the stack
+    brls::Application::pushView(this->rootFrame);
+    while(brls::Application::mainLoop()) {
+        for(auto it = this->hosts->begin(); it != this->hosts->end(); it++){
+            if(this->host_menuitems.find(&it->second) == this->host_menuitems.end()){
+                brls::List* new_host = new brls::List();
+                this->host_menuitems[&it->second] = new_host;
+                // create host if udefined
+                HostInterface host_menu = HostInterface(new_host, this->io, &it->second, this->settings);
+                BuildConfigurationMenu(new_host, &it->second);
+                this->rootFrame->addTab(it->second.host_name.c_str(), new_host);
+            }
+        }
+    }
+    return true;
 }
 
-void MainApplication::SettingInput(u64 down, u64 up, u64 held) {
-	//this->setting_layout->UpdateState();
-	if(down & KEY_B) this->ReturnToMainMenu();
+bool MainApplication::BuildConfigurationMenu(brls::List * ls, Host * host) {
+    std::string psn_online_id_string = this->settings->GetPSNOnlineID(host);
+    brls::ListItem* psn_online_id = new brls::ListItem("PSN Online ID");
+    psn_online_id->setValue(psn_online_id_string.c_str());
+    psn_online_id->getClickEvent()->subscribe([this, host, psn_online_id](brls::View * view) {
+            char online_id[256] = {0};
+            bool input = this->io->ReadUserKeyboard(online_id, sizeof(online_id));
+            if(input){
+                // update gui
+                psn_online_id->setValue(online_id);
+                // push in setting
+                this->settings->SetPSNOnlineID(host, online_id);
+                // write on disk
+                this->settings->WriteFile();
+            }
+        });
+    ls->addView(psn_online_id);
+
+    std::string psn_account_id_string = this->settings->GetPSNAccountID(host);
+    brls::ListItem* psn_account_id = new brls::ListItem("PSN Account ID",  "v7.0 and greater");
+    psn_account_id->setValue(psn_account_id_string.c_str());
+    psn_account_id->getClickEvent()->subscribe([this, host, psn_account_id](brls::View * view) {
+            char account_id[CHIAKI_PSN_ACCOUNT_ID_SIZE * 2] = {0};
+            bool input = this->io->ReadUserKeyboard(account_id, sizeof(account_id));
+            if(input){
+                // update gui
+                psn_account_id->setValue(account_id);
+                // push in setting
+                this->settings->SetPSNAccountID(host, account_id);
+                // write on disk
+                this->settings->WriteFile();
+            }
+        });
+    ls->addView(psn_account_id);
+
+    int value;
+    ChiakiVideoResolutionPreset resolution_preset = this->settings->GetVideoResolution(host);
+    switch(resolution_preset){
+        case CHIAKI_VIDEO_RESOLUTION_PRESET_720p:
+            value = 0;
+            break;
+        case CHIAKI_VIDEO_RESOLUTION_PRESET_540p:
+            value = 1;
+            break;
+        case CHIAKI_VIDEO_RESOLUTION_PRESET_360p:
+            value = 2;
+            break;
+    }
+    brls::SelectListItem* resolution = new brls::SelectListItem(
+            "Resolution", { "720p", "540p", "360p" }, value);
+
+    resolution->getValueSelectedEvent()->subscribe([this, host](int result) {
+            ChiakiVideoResolutionPreset value = CHIAKI_VIDEO_RESOLUTION_PRESET_720p;
+            switch(result){
+                case 0:
+                    value = CHIAKI_VIDEO_RESOLUTION_PRESET_720p;
+                    break;
+                case 1:
+                    value = CHIAKI_VIDEO_RESOLUTION_PRESET_540p;
+                    break;
+                case 2:
+                    value = CHIAKI_VIDEO_RESOLUTION_PRESET_360p;
+                    break;
+            }
+            this->settings->SetVideoResolution(host, value);
+            this->settings->WriteFile();
+        });
+
+    ls->addView(resolution);
+
+    ChiakiVideoFPSPreset fps_preset = this->settings->GetVideoFPS(host);
+    switch(fps_preset){
+        case CHIAKI_VIDEO_FPS_PRESET_60:
+            value = 0;
+            break;
+        case CHIAKI_VIDEO_FPS_PRESET_30:
+            value = 1;
+            break;
+    }
+
+    brls::SelectListItem* fps = new brls::SelectListItem(
+            "FPS", { "60", "30"}, value);
+
+    fps->getValueSelectedEvent()->subscribe([this, host](int result) {
+            ChiakiVideoFPSPreset value = CHIAKI_VIDEO_FPS_PRESET_60;
+            switch(result){
+                case 0:
+                    value = CHIAKI_VIDEO_FPS_PRESET_60;
+                    break;
+                case 1:
+                    value = CHIAKI_VIDEO_FPS_PRESET_30;
+                    break;
+            }
+            this->settings->SetVideoFPS(host, value);
+            this->settings->WriteFile();
+        });
+
+    ls->addView(fps);
+
+    if(host != nullptr){
+        // message delimiter
+        brls::Label* info = new brls::Label(brls::LabelStyle::REGULAR,
+                "Host information", true);
+        ls->addView(info);
+
+        std::string host_name_string = this->settings->GetHostName(host);
+        brls::ListItem* host_name = new brls::ListItem("PS4 Hostname");
+        host_name->setValue(host_name_string.c_str());
+        ls->addView(host_name);
+
+        std::string host_ipaddr_string = settings->GetHostIPAddr(host);
+        brls::ListItem* host_ipaddr = new brls::ListItem("PS4 IP Address");
+        host_ipaddr->setValue(host_ipaddr_string.c_str());
+        ls->addView(host_ipaddr);
+
+        std::string host_rp_regist_key_string = settings->GetHostRPRegistKey(host);
+        brls::ListItem* host_rp_regist_key = new brls::ListItem("RP Register Key");
+        host_rp_regist_key->setValue(host_rp_regist_key_string.c_str());
+        ls->addView(host_rp_regist_key);
+
+        std::string host_rp_key_string = settings->GetHostRPKey(host);
+        brls::ListItem* host_rp_key = new brls::ListItem("RP Key");
+        host_rp_key->setValue(host_rp_key_string.c_str());
+        ls->addView(host_rp_key);
+
+        std::string host_rp_key_type_string = std::to_string(settings->GetHostRPKeyType(host));
+        brls::ListItem* host_rp_key_type = new brls::ListItem("RP Key type");
+        host_rp_key_type->setValue(host_rp_key_type_string.c_str());
+        ls->addView(host_rp_key_type);
+
+    }
+
+    return true;
 }
 
-void MainApplication::AddInput(u64 down, u64 up, u64 held) {
-	//this->setting_layout->UpdateState();
-	if(down & KEY_B) this->ReturnToMainMenu();
+PS4RemotePlay::PS4RemotePlay(IO * io, Host * host):
+    io(io), host(host) {
+    // store joycon/touchpad keys
+    for(int x=0; x < CHIAKI_CONTROLLER_TOUCHES_MAX; x++){
+        // start touchpad as "untouched"
+        this->state.touches[x].id = -1;
+    }
+    // this->base_time=glfwGetTime();
 }
 
-void MainApplication::LoadSettingLayout() {
-	this->LoadLayout(this->setting_layout);
+void PS4RemotePlay::draw(NVGcontext* vg, int x, int y, unsigned width, unsigned height, brls::Style* style, brls::FrameContext* ctx) {
+    this->io->MainLoop(&this->state);
+    this->host->SendFeedbackState(&state);
+
+    // FPS calculation
+    // this->frame_counter += 1;
+    // double frame_time = glfwGetTime();
+    // if((frame_time - base_time) >= 1.0){
+    //     base_time += 1;
+    //     //printf("FPS: %d\n", this->frame_counter);
+    //     this->fps = this->frame_counter;
+    //     this->frame_counter = 0;
+    // }
+    // nvgBeginPath(vg);
+    // nvgFillColor(vg, nvgRGBA(255,192,0,255));
+    // nvgFontFaceId(vg, ctx->fontStash->regular);
+    // nvgFontSize(vg, style->Label.smallFontSize);
+    // nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_MIDDLE);
+    // char fps_str[9] = {0};
+    // sprintf(fps_str, "FPS: %000d", this->fps);
+    // nvgText(vg, 5,10, fps_str, NULL);
 }
 
-void MainApplication::LoadAddLayout() {
-	this->LoadLayout(this->add_layout);
+PS4RemotePlay::~PS4RemotePlay(){
 }
 
-void MainApplication::ShowCustomDialogCallback(chiaki::ui::CustomDialog::Ref custom_dialog) {
-	custom_dialog->Show(this->rend, this);
-}
-
-void MainApplication::SetHostCallback(Host * host) {
-	this->host = host;
-
-	if(host->state != CHIAKI_DISCOVERY_HOST_STATE_READY) {
-		// host in standby mode
-		this->CreateShowDialog("Failed to initiate session", "Please turn on your PS4", { "OK" }, true);
-		return;
-	}
-
-	// TODO test if account exist ?
-	if(false) {
-		// account not configured
-		this->CreateShowDialog("Failed to initiate session", "No PSN account provided", { "OK" }, true);
-		return;
-	}
-
-	if(!host->rp_key_data){
-		// add HostConnected function to regist_event_type_finished_success
-		this->host->SetRegistEventTypeFinishedSuccess(std::bind(&MainApplication::HostConnectSession, this));
-		this->HostPinCodeCallback(false);
-	} else {
-		// the host is already registered
-		// start session directly
-		this->HostConnectSession();
-	}
-}
-
-bool MainApplication::HostPinCodeCallback(bool pin_incorrect){
-	bool pin_provided = false;
-	if(pin_incorrect) {
-		bool retry = this->CreateShowDialog("Session Registration Failed", "Please verify your PS4 settings", { "Retry", "Cancel" }, true);
-		if(retry != 0){
-			return false;
-		}
-	} else {
-		// the host is not registered yet
-		this->CreateShowDialog("Initiate session", "Please enter PS4 registration PIN code", { "OK" }, true);
-	}
-	char pin_input[9] = {0};
-	pin_provided = io->ReadUserKeyboard(pin_input, sizeof(pin_input));
-	if(pin_provided){
-		this->host->Register(pin_input);
-	} else {
-		// user canceled the pin registration process
-		// this->CreateShowDialog("Initiate session", "No code provided", { "OK" }, true);
-	}
-	return true;
-}
-
-bool MainApplication::HostConnectSession(){
-	if(host->registered){
-		// save RP keys
-		this->settings->WriteFile();
-	}
-	// connect host sesssion
-	host->ConnectSession(this->io);
-	host->StartSession();
-	// FIXME: it does not wait for complete connection
-	// quite completely the gui app to release SDL2 objects
-	this->Close();
-	// we cannot display errors on screen if the connection failed
-	return true;
-}
-
-bool MainApplication::HostConnectedCallback(){
-	// quite completely the gui app
-	this->Close();
-	// from here the GUI is unloaded
-	// now SDL2 is managed by the IO object
-	return true;
-}
-
-void MainApplication::WakeupHostCallback(Host * host) {
-	if(!host->rp_key_data) {
-		// the host is not registered yet
-		this->CreateShowDialog("Wakeup", "Please register your PS4 first", { "OK" }, true);
-	} else {
-		int r = host->Wakeup();
-		if(r == 0){
-			this->CreateShowDialog("Wakeup", "PS4 Wakeup packet sent", { "OK" }, true);
-		} else {
-			this->CreateShowDialog("Wakeup", "PS4 Wakeup packet Failed", { "OK" }, true);
-		}
-	}
-}
-
-void MainApplication::ConfigureHostCallback(Host * host) {
-	std::function<void(chiaki::ui::CustomDialog::Ref)> show_custom_dialog_cb =
-		std::bind(&MainApplication::ShowCustomDialogCallback, this, std::placeholders::_1);
-	// display host's settings
-	SettingLayout::Ref host_setting_layout = SettingLayout::New(host, this->settings, this->io, show_custom_dialog_cb);
-	host_setting_layout->SetOnInput(std::bind(&MainApplication::SettingInput, this,
-			std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
-
-	this->LoadLayout(host_setting_layout);
-	//int ret = this->CreateShowDialog("Settings", "TODO", { "OK" }, true);
-}
-
-void MainApplication::DiscoverySendCallback(Host * host) {
-	if(host){
-		this->discoverymanager->Send(host->host_addr.c_str());
-	} else {
-		// broadcast send discovery
-		this->discoverymanager->Send();
-	}
-}
-
-Host * MainApplication::GetHost() {
-	return this->host;
-}
