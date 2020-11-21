@@ -88,7 +88,7 @@ class Host
 		Host(ChiakiLog * log, Settings * settings, std::string host_name);
 		~Host();
 		bool GetVideoResolution(int * ret_width, int * ret_height);
-		int Register(std::string pin);
+		int Register(int pin);
 		int Wakeup();
 		int InitSession(IO *);
 		int FiniSession();

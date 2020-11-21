@@ -2,6 +2,7 @@
 
 #include <chiaki/log.h>
 #include "gui.h"
+#include <borealis/swkbd.hpp>
 
 #define SCREEN_W 1280
 #define SCREEN_H 720
@@ -60,20 +61,16 @@ void HostInterface::Register(bool pin_incorrect)
 	brls::Dialog* peprpc = new brls::Dialog("Please enter your PS4 registration PIN code");
 	brls::GenericEvent::Callback cb_peprpc = [this, peprpc](brls::View* view)
 	{
-		bool pin_provided = false;
-		char pin_input[9] = {0};
 		std::string error_message;
-
 		// use callback to ensure that the message is showed on screen
-		// before the the ReadUserKeyboard
+		// before the the Swkbd (switch keyboard)
 		peprpc->close();
 
-		pin_provided = this->io->ReadUserKeyboard(pin_input, sizeof(pin_input));
-		if(pin_provided)
+		auto pin_cb = [this](int pin)
 		{
 			// prevent users form messing with the gui
 			brls::Application::blockInputs();
-			int ret = this->host->Register(pin_input);
+			int ret = this->host->Register(pin);
 			if(ret != HOST_REGISTER_OK)
 			{
 				switch(ret)
@@ -89,7 +86,11 @@ void HostInterface::Register(bool pin_incorrect)
 						break;
 				}
 			}
-		}
+		};
+		// the pin is 8 digit + \0
+		// + allow one " " white space in the middle
+		brls::Swkbd::openForNumber(pin_cb, "PS4 registration",
+				"Pin code", 9, "", "", "");
 	};
 	peprpc->addButton("Ok", cb_peprpc);
 	peprpc->setCancelable(false);
@@ -308,14 +309,13 @@ bool MainApplication::Load()
 
 bool MainApplication::BuildConfigurationMenu(brls::List * ls, Host * host)
 {
-	std::string psn_online_id_string = this->settings->GetPSNOnlineID(host);
+
 	brls::ListItem* psn_online_id = new brls::ListItem("PSN Online ID");
+	std::string psn_online_id_string = this->settings->GetPSNOnlineID(host);
 	psn_online_id->setValue(psn_online_id_string.c_str());
 	auto psn_online_id_cb = [this, host, psn_online_id](brls::View * view)
 	{
-		char online_id[256] = {0};
-		bool input = this->io->ReadUserKeyboard(online_id, sizeof(online_id));
-		if(input)
+		auto online_id_cb = [this, host, psn_online_id](std::string online_id)
 		{
 			// update gui
 			psn_online_id->setValue(online_id);
@@ -323,19 +323,27 @@ bool MainApplication::BuildConfigurationMenu(brls::List * ls, Host * host)
 			this->settings->SetPSNOnlineID(host, online_id);
 			// write on disk
 			this->settings->WriteFile();
-		}
+		};
+
+		std::string psn_online_id_string = this->settings->GetPSNOnlineID(host);
+		// https://www.playstation.com/en-ie/get-help/help-library/my-account/access-and-details/information-about-your-online-id/
+		brls::Swkbd::openForText(online_id_cb, "PSN Online ID",
+				"PS4 < 7.0", 16, psn_online_id_string,
+				brls::KeyboardKeyDisableBitmask::KEYBOARD_DISABLE_SPACE |
+				brls::KeyboardKeyDisableBitmask::KEYBOARD_DISABLE_AT |
+				brls::KeyboardKeyDisableBitmask::KEYBOARD_DISABLE_PERCENT |
+				brls::KeyboardKeyDisableBitmask::KEYBOARD_DISABLE_FORWSLASH |
+				brls::KeyboardKeyDisableBitmask::KEYBOARD_DISABLE_BACKSLASH );
 	};
 	psn_online_id->getClickEvent()->subscribe(psn_online_id_cb);
 	ls->addView(psn_online_id);
 
-	std::string psn_account_id_string = this->settings->GetPSNAccountID(host);
 	brls::ListItem* psn_account_id = new brls::ListItem("PSN Account ID",  "v7.0 and greater");
+	std::string psn_account_id_string = this->settings->GetPSNAccountID(host);
 	psn_account_id->setValue(psn_account_id_string.c_str());
 	auto psn_account_id_cb = [this, host, psn_account_id](brls::View * view)
 	{
-		char account_id[CHIAKI_PSN_ACCOUNT_ID_SIZE * 2] = {0};
-		bool input = this->io->ReadUserKeyboard(account_id, sizeof(account_id));
-		if(input)
+		auto account_id_cb = [this, host, psn_account_id](std::string account_id)
 		{
 			// update gui
 			psn_account_id->setValue(account_id);
@@ -343,7 +351,15 @@ bool MainApplication::BuildConfigurationMenu(brls::List * ls, Host * host)
 			this->settings->SetPSNAccountID(host, account_id);
 			// write on disk
 			this->settings->WriteFile();
-		}
+		};
+
+		std::string psn_account_id_string = this->settings->GetPSNAccountID(host);
+		brls::Swkbd::openForText(account_id_cb, "PSN Account ID",
+				"base64 account id", CHIAKI_PSN_ACCOUNT_ID_SIZE * 2, psn_account_id_string,
+				brls::KeyboardKeyDisableBitmask::KEYBOARD_DISABLE_SPACE |
+				brls::KeyboardKeyDisableBitmask::KEYBOARD_DISABLE_AT |
+				brls::KeyboardKeyDisableBitmask::KEYBOARD_DISABLE_PERCENT |
+				brls::KeyboardKeyDisableBitmask::KEYBOARD_DISABLE_FORWSLASH);
 	};
 	psn_account_id->getClickEvent()->subscribe(psn_account_id_cb);
 	ls->addView(psn_account_id);
